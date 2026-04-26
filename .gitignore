@@ -2,10 +2,11 @@
 
 Docs/External
 Docs/*.odt
+Docs/Writeup/*
 !Docs/Writeup/Bibs
 !Docs/Writeup/Figures
 !Docs/Writeup/*.pdf
-!Docs/Writeup/*tex
+!Docs/Writeup/*.tex
 
 
 # Python stuff. Get your own!
