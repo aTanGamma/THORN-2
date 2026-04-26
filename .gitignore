@@ -1,0 +1,16 @@
+# Stuff in docs (mainly LaTeX junk & files I don't own)
+
+Docs/External
+Docs/*.odt
+!Docs/Writeup/Bibs
+!Docs/Writeup/Figures
+!Docs/Writeup/*.pdf
+!Docs/Writeup/*tex
+
+
+# Python stuff. Get your own!
+
+ALU/Code..venv
+
+
+
