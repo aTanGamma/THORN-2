@@ -29,4 +29,4 @@ everything I learnt there helped make this version much simpler. T1 used
 pipelined ram for the registers, leading to a 4-phase clock and massive pain in
 the ALU, so I abandoned it to start over.
 
-- aTan 2026
+-aTan 2026
