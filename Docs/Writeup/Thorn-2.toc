@@ -1,0 +1,25 @@
+\contentsline {section}{\numberline {1}Introduction}{1}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Pipelining}{1}{subsection.1.1}%
+\contentsline {subsubsection}{\numberline {1.1.1}Why \textit {\TH }-2\ Differs From Classic RISC}{1}{subsubsection.1.1.1}%
+\contentsline {subsection}{\numberline {1.2}Hazard Avoidance}{2}{subsection.1.2}%
+\contentsline {subsubsection}{\numberline {1.2.1}Adding Stalls}{2}{subsubsection.1.2.1}%
+\contentsline {subsubsection}{\numberline {1.2.2}Operand Forwarding}{3}{subsubsection.1.2.2}%
+\contentsline {section}{\numberline {2}Program Counter}{4}{section.2}%
+\contentsline {section}{\numberline {3}Decode Logic}{4}{section.3}%
+\contentsline {section}{\numberline {4}Immediate Value Generator}{4}{section.4}%
+\contentsline {section}{\numberline {5}Registers}{4}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Theory of Operation}{5}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Control Logic}{5}{subsection.5.2}%
+\contentsline {section}{\numberline {6}ALU}{6}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Adder}{7}{subsection.6.1}%
+\contentsline {subsubsection}{\numberline {6.1.1}Method}{7}{subsubsection.6.1.1}%
+\contentsline {subsubsection}{\numberline {6.1.2}Modified Carry-Lookahead}{8}{subsubsection.6.1.2}%
+\contentsline {subsubsection}{\numberline {6.1.3}Doing the Adding}{8}{subsubsection.6.1.3}%
+\contentsline {subsubsection}{\numberline {6.1.4}Condition Checking}{9}{subsubsection.6.1.4}%
+\contentsline {subsection}{\numberline {6.2}Logicer}{10}{subsection.6.2}%
+\contentsline {subsubsection}{\numberline {6.2.1}Logic from MUXs}{10}{subsubsection.6.2.1}%
+\contentsline {subsubsection}{\numberline {6.2.2}Setting up the MUX}{11}{subsubsection.6.2.2}%
+\contentsline {subsection}{\numberline {6.3}Shifter}{12}{subsection.6.3}%
+\contentsline {subsubsection}{\numberline {6.3.1}Bit Order Reverser}{12}{subsubsection.6.3.1}%
+\contentsline {subsubsection}{\numberline {6.3.2}Shift Stages}{12}{subsubsection.6.3.2}%
+\contentsline {section}{References}{12}{section*.16}%

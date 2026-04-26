@@ -1,0 +1,5 @@
+\contentsline {figure}{\numberline {1}{\ignorespaces Execution flow through a pipelined ALU. $I_{n}$ refers to line number in code listing.}}{4}{figure.caption.6}%
+\contentsline {figure}{\numberline {2}{\ignorespaces The \textit {Thorn}-2\ register file.}}{6}{figure.caption.8}%
+\contentsline {figure}{\numberline {3}{\ignorespaces \textit {Thorn}-2\ register file timing diagram.}}{6}{figure.caption.9}%
+\contentsline {figure}{\numberline {4}{\ignorespaces Wiring of a 4:1 mux as used in the logic section.}}{10}{figure.caption.13}%
+\contentsline {figure}{\numberline {5}{\ignorespaces Diode ROM storing the truth table function, \(F_0, F_1, F_2, F_3\). Pull down resistors on all \(F_n\) lines omitted for clarity.}}{11}{figure.caption.15}%
