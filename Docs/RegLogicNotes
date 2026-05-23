@@ -1,0 +1,27 @@
+!WE logic:
+----------
+
+    CLK     WRT     !WE     !OE
+    ---------------------------
+    0       0       1       0
+    0       1       1       0
+    1       0       1       1
+    1       1       0       1
+
+!WE = !(CLK.WRT)    [~2 ns]
+
+
+    CLK     ZERO    !OE
+    --------------------
+    0       0       0
+    0       1       1
+    1       0       1
+    1       1       1
+
+!OE = CLK + ZERO
+    = !(!CLK . !ZERO)
+
+
+
+Extra !OE control for operand forwarding done w/ buffers
+

@@ -1,0 +1,46 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "a21e8fca-cbe3-4fb1-84d3-09351143be4c")
+	(paper "A3")
+	(title_block
+		(title "Register X Output Buffer")
+		(date "2026-04-27")
+		(rev "1")
+	)
+	(lib_symbols)
+	(hierarchical_label "D_[0..63]"
+		(shape input)
+		(at 72.39 34.29 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "7f98a831-900e-44cb-8df9-2a07dc74fe8b")
+	)
+	(hierarchical_label "~{BUF_EN}"
+		(shape input)
+		(at 72.39 39.37 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "a40f6790-4318-4855-b0bb-78379c442edd")
+	)
+	(hierarchical_label "D_Buf_[0..63]"
+		(shape input)
+		(at 102.87 36.83 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "a8ac6a10-68ba-4008-9430-9f82bb50255c")
+	)
+)

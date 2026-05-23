@@ -102,7 +102,7 @@ morestring=[b]'       % also mark ' as string start/end
     \newcommand{\linksection}[1]{\hyperref[#1]{\S \nameref*{#1}}}
 
     %Defines the number of stages in the pipeline for easy changing
-    \newcommand{\pipestages}{??? }
+    \newcommand{\pipestages}{5}
 
     \newcommand{\ramshort}{IS61WV6416}
     \newcommand{\ramname}{IS61WV6416DBLL-10TLI-TR}
@@ -376,7 +376,7 @@ add a0, a0, a5  ;Add lots of numbers in turn
     \section{Immediate Value Generator}\label{sec:ImVal}
 
     \section{Registers}\label{sec:Regs}
-        
+
         RV64i specifies 32 64-bit general-purpose registers and a program counter, PC.
             x0 is hardwired to \verb|0x0000 0000 0000 0000|; there is no stack
             pointer. None of the registers are otherwise special, but do have expected
@@ -427,13 +427,14 @@ add a0, a0, a5  ;Add lots of numbers in turn
         
         For every RV64i operation, there are up to two operands, meaning up to two
             registers may be read each cycle. There may also be a value written into
-            a register. 
-            Since the \ramshort\ is not multi-port, two copies of the register file
-            are required: \textbf{x} and \textbf{y}; these are both 
-            written to and read from (at different addresses) at the same time.
+            a register.
+            To avoid using multiport RAM, two copies of the registers are needed:
+            \textbf{x} and \textbf{y}; these two are both written to and read from
+            at the same time. The \ramshort is 16-bit, so there are two sets of four
+            RAM chips total.
 
-            \begin{figure}[htb!]
-                \includegraphics[width=\textwidth]{Figures/RegFile_TopLevel.png}
+            \begin{figure}[htb]
+                \includegraphics[width=\textwidth]{Figures/RegisterLayout.png}
                 \caption{The \longlogo\ register file.}
                 \label{fig:Regs:TheoryOp:StdRegFile}
             \end{figure}
@@ -441,78 +442,221 @@ add a0, a0, a5  ;Add lots of numbers in turn
         Both access to \textbf{x} and \textbf{y} (Read/Write) occur within one cycle;
             writes are completed on the rising edge, $\phi_{1}$; and reads on the
             falling edge, $\phi_{2}$. Doing it in this order means neither the 
-            writeback value, $D_{WB}$, nor the two read values, $D_{Rs1}$ and 
+            writeback value, \(D_{WB}\), nor the two read values, \(D_{Rs1}\) and 
             $D_{Rs2}$, need additional latches - the former is latched from the output
             of the previous stage and the latter are latched on the next $\phi_{1}$.
-            Some operations, such as conditional branches, compute a "result" which isn't
-            needed. These instructions generate a write-blocking signal which prevents 
-            the value $D_{WB}$ being committed to memory.
-
+            
+        Some operations, such as conditional branches, compute a "result" which isn't
+            needed. Whether such results are written to a register is tracked in the 
+            CPU-wide control logic [LINK HERE] which issues the \textbf{WRT} signal.
+        
+        % Register Timing Diagram
         \begin{figure}[htb!]
             \centering
-            \begin{tikzpicture}[timing/picture]
+            \begin{tikzpicture}[timing/picture, timing/unit=5mm]
 
-                \timing[timing/unit=5mm, name=CLKTim] at (0,0) {0.5L N(T0) 3{H}N(T1) 3{L}N(T2) 3{H}N(T3) 3{L}N(T4) 0.5H}; 
-                    \node[anchor=east](CLK_Label) at (CLKTim.west) {Clock};
+                %5mm before first clk, 30mm for [Read 0, Write, No Write], 5mm after last clock
 
-                \timing[timing/unit=5mm, name=Adr1] at (0,-2.5) {0.5D{} 6{D}{01000} 6{D}{01001} 0.5D};
-                    \node[anchor=east](Adr1_Label) at (Adr1.west) {Rs1 [5]};
+                \timing[name=CLKTim] at (0,0) {
+                        LN(T0) 
+                        3{H}N(T1) 3{L}N(T2) 
+                        3{H}N(T3) 3{L}N(T4) 
+                        3{H}N(T5) 3{L}N(T6) 
+                        H
+                    }; 
+                    \node[anchor=east](CLK_Label) at (CLKTim.west) {CLK};
 
-                \timing[timing/unit=5mm, name=Adr2] at (0,-5.0) {0.5D{} 6{D}{01010} 6{D}{01011} 0.5D};
-                    \node[anchor=east](Adr2_Label) at (Adr2.west) {Rs2 [5]};
+                \timing[name=Adr1] at (0,-2) {
+                        D{} 
+                        6{D}{00000} 
+                        6{D}{01000} 
+                        6{D}{01001} 
+                        D
+                    };
+                    \node[anchor=east](Adr1_Label) at (Adr1.west) {\(\mathrm{RS_{1}}\)[5]};
 
-                \timing[timing/unit=5mm, name=wAdr] at (0,-7.5) {0.5D{} 6{D}{11111} 6{D}{11110} 0.5D};
-                    \node[anchor=east](wAdr_Label) at (wAdr.west) {Rd [5]};
+                \timing[name=Adr2] at (0,-4) {
+                        D{} 
+                        6{D}{01010} 
+                        6{D}{00000} 
+                        6{D}{01011} 
+                        D
+                    };
+                    \node[anchor=east](Adr2_Label) at (Adr2.west) {\(\mathrm{RS_{2}}\)[5]};
 
+                \timing[name=wAdr] at (0,-6) {
+                        D{} 
+                        6{D}{00000} 
+                        6{D}{11111} 
+                        6{D}{11110} 
+                        D
+                    };
+                    \node[anchor=east](wAdr_Label) at (wAdr.west) {WB[5]};
 
+                \timing[name=WrCtrl] at (0,-8) {
+                        U 
+                        3{L} 3{H} 
+                        3{L} 3{H}
+                        3{H} 3{H}
+                        U
+                    };
+                    \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {\(\mathrm{\overline{WE}}\)};
+
+                \timing[name=WrCtrl] at (0,-10) {
+                        U 
+                        3{H} 3{H} 
+                        3{H} 3{L}
+                        3{H} 3{L}
+                        U
+                    };
+                    \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {\(\mathrm{\overline{OE_{X}}}\)};
+
+                \timing[name=WrCtrl] at (0,-12) {
+                        U 
+                        3{H} 3{L} 
+                        3{H} 3{H}
+                        3{H} 3{L}
+                        U
+                    };
+                    \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {\(\mathrm{\overline{OE_{Y}}}\)};
                 
-                \timing[timing/unit=5mm, name=WrCtrl] at (0,-11.0) {0.5L L H L 9{L} 0.2H};
-                    \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {Write};
+                \timing[name=xAdr] at (0, -14) {
+                        D{} 
+                        3{D}{00000} 3{D}{00000} 
+                        3{D}{11111} 3{D}{01000} 
+                        3{D}{11110} 3{D}{01001} 
+                        D{}
+                    };
+                    \node[anchor=east](xAdr_Label) at (xAdr.west) {\(\mathrm{ADR_{X}}\)[5]};
+
+                \timing[name=yAdr] at (0, -16) {
+                        D{} 
+                        3{D}{00000} 3{D}{01010} 
+                        3{D}{11111} 3{D}{00000} 
+                        3{D}{11110} 3{D}{01011} 
+                        D{}
+                    };
+                    \node[anchor=east](yAdr_Label) at (yAdr.west) {\(\mathrm{ADR_{Y}}\)[5]};
                 
-                \timing[timing/unit=5mm, name=xAdr] at (0, -13.5) {0.5D{} 3{D}{11111} 3{D}{01000} 6{D}{01001} 0.5D};
-                    \node[anchor=east](xAdr_Label) at (xAdr.west) {$\mathbf{x}_{addr}$};
+                \timing[name=xData] at (0, -18) {
+                        D{}
+                        3{D}{\(\mathrm{WB\_DATA}\)} 3{D}{'zero'}
+                        3{D}{\(\mathrm{WB\_DATA}\)} 3{D}{'s0'}
+                        3{D}{00000} 3{D}{'s1'}
+                        D{}
+                    };
+                    \node[anchor=east](xData_Label) at (xData.west) {\(\mathrm{X\_BUS}\) [64]};
 
-                \timing[timing/unit=5mm, name=yAdr] at (0, -16.0) {0.5D{} 3{D}{11111} 3{D}{01010} 6{D}{01011} 0.5D};
-                    \node[anchor=east](yAdr_Label) at (yAdr.west) {$\mathbf{y}_{addr}$};
+                \timing[name=yData] at (0, -20) {
+                    D{}
+                    3{D}{\(\mathrm{WB\_DATA}\)} 3{D}{'a0'}
+                    3{D}{\(\mathrm{WB\_DATA}\)} 3{D}{'zero'}
+                    3{D}{00000} 3{D}{'t5'}
+                    D{}
+                    };
+                    \node[anchor=east](yData_Label) at (yData.west) {\(\mathrm{Y\_BUS}\) [64]};
 
-                
-                \timing[timing/unit=5mm, name=xData] at (0, -19.5) {0.5D{} 3D{$D_{WB, 1}$} 3D{$D_{Rs1, 1}$} 3D{$D_{WB, 2}$} 3D{$D_{Rs1, 2}$} 0.5D{}};
-                    \node[anchor=east](xData_Label) at (xData.west) {$\textbf{D}_{Rs1}$ [64]};
+                \timing[name=WrCtrl] at (0,-22) {
+                        U 
+                        3{H} 3{L} 
+                        3{H} 3{H}
+                        3{H} 3{L}
+                        U
+                    };
+                    \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {\(\mathrm{\overline{BUF\_EN_{X}}}\)};
 
-                \timing[timing/unit=5mm, name=yData] at (0, -22.5) {0.5D{} N(B0) 3D{$D_{WB, 1}$}N(B1) 3D{$D_{Rs2, 1}$}N(B2) 3D{$D_{WB, 2}$}N(B3) 3D{$D_{Rs2, 2}$}N(B4) 0.5D{}};
-                    \node[anchor=east](yData_Label) at (yData.west) {$\textbf{D}_{Rs2}$ [64]};
+                \timing[name=WrCtrl] at (0,-24) {
+                        U 
+                        3{H} 3{L} 
+                        3{H} 3{H}
+                        3{H} 3{H}
+                        U
+                    };
+                    \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {\(\mathrm{\overline{BUF\_EN_{Y}}}\)};
 
-                \draw[green!75!red](T0.HIGH)+(0, 2.5) -- (B0.low) node[pos=0, anchor=north west, black]{\scriptsize Writeback enabled};
-                \draw[red!50!blue](T2.HIGH)+(0, 2.5) -- (B2.low) node[pos=0, anchor=north west, black]{\scriptsize Writeback disabled};
-                \draw[gray](T4.HIGH)+(0, 2.5) -- (B4.low) ;
 
-                \node[anchor=south west] at (T0.low) {\footnotesize$\phi_{1}$};
-                \node[anchor=south west] at (T1.low) {\footnotesize$\phi_{2}$};
+                \timing[name=yData] at (0, -26) {
+                    D{}
+                    3{U} 3{D}{'zero'}
+                    3{U} 3{U}
+                    3{U} 3{D}{'s1'}
+                    D{}
+                    };
+                    \node[anchor=east](yData_Label) at (yData.west) {\(\mathrm{REG\_OUT_{1}}\) [64]};
 
-                \node[anchor=south west] at (T2.low) {\footnotesize$\phi_{1}$};
-                \node[anchor=south west] at (T3.low) {\footnotesize$\phi_{2}$};
+                \timing[name=yData] at (0, -28) {
+                    D{}N(B0) 
+                    3{U}N(B1) 3{D}{'a0'}N(B2) 
+                    3{U}      3{U}N(B4) 
+                    3{U}      3{U}N(B6) 
+                    D{}
+                    };
+                    \node[anchor=east](yData_Label) at (yData.west) {\(\mathrm{REG\_OUT_{2}}\) [64]};
+
+                \draw[black](T0.HIGH)+(0, 3.5) -- (B0.low) node[pos=0, anchor=north west, black, align=left]{
+                    \scriptsize WRT = 1\\
+                    \(\scriptstyle REG\_SEL_{X}\) = 1\\
+                    \(\scriptstyle REG\_SEL_{Y}\) = 1
+                    };
+                \draw[black](T2.HIGH)+(0, 3.5) -- (B2.low) node[pos=0, anchor=north west, black, align=left]{
+                    \scriptsize WRT = 1\\
+                    \(\scriptstyle REG\_SEL_{X}\) = 0\\
+                    \(\scriptstyle REG\_SEL_{Y}\) = 0
+                    };
+                \draw[black](T4.HIGH)+(0, 3.5) -- (B4.low) node[pos=0, anchor=north west, black, align=left]{
+                    \scriptsize WRT = 0\\
+                    \(\scriptstyle REG\_SEL_{X}\) = 1\\
+                    \(\scriptstyle REG\_SEL_{Y}\) = 0
+                    };
+                \draw[black](T6.HIGH)+(0, 3.5) -- (B6.low) ;
+
+                \node[anchor=south west] at (T0.low) {\footnotesize\(\phi_{1}\)};
+                \node[anchor=south west] at (T1.low) {\footnotesize\(\phi_{2}\)};
+
+                \node[anchor=south west] at (T2.low) {\footnotesize\(\phi_{1}\)};
+                \node[anchor=south west] at (T3.low) {\footnotesize\(\phi_{2}\)};
+
+                \node[anchor=south west] at (T4.low) {\footnotesize\(\phi_{1}\)};
+                \node[anchor=south west] at (T5.low) {\footnotesize\(\phi_{2}\)};
 
             \end{tikzpicture}
             
-            \caption{\longlogo\ register file timing diagram.}
+            \caption{Register file timing diagram.}
             \label{tim:Regs:TheoryOp:RegTiming}
         \end{figure}
 
         \subsection{Control Logic}\label{sec:Regs:CtrlLogic}
 
+            The design shown in \cref{fig:Regs:TheoryOp:StdRegFile} shows the control
+                logic for the register file. 
+
             The design shown in \cref{fig:Regs:TheoryOp:StdRegFile} features two main
                 elements which require "control logic" - the provided addresses, 
                 $\mathbf{x}_{adr}$ and $\mathbf{y}_{adr}$, and control over the data
-                busses, $\mathbf{D}_{Rs1}$ and $\mathbf{D}_{Rs2}$. In $\phi_{1}$, both
-                are dedicated to the writeback operation and the read operation in
-                $\phi_{2}$. This occurs \emph{whether or not} the write is needed, the
-                only difference in the latter case being whether the \ramshort\ commits
+                busses, $\mathbf{D}_{Rs1}$ and $\mathbf{D}_{Rs2}$. 
+                In $\phi_{1}$, both are dedicated to the writeback operation and the 
+                read operation in $\phi_{2}$. 
+                This occurs \emph{whether or not} the write is needed, the only 
+                difference in the latter case being whether the \ramshort\ commits
                 $\mathbf{D}_{WB}$ to storage (shown in \cref{tim:Regs:TheoryOp:RegTiming}).
             
-            The write signal is generated by ANDing the write-enable signal (external)
-                with a rising-edge detector on the clock line. When writeback is enabled
-                this pulse occurs and is delayed enough for the address and data lines
-                to settle.
+            In \(\phi_{1}\), if \textbf{WRT} is high, a \(\overline{WE}\) controlled
+                write cycle occurs with \(\overline{OE}\) set high. This is the simplest
+                option given the signals needed.
+            
+            In \(\phi_{2}\), \(\overline{OE}\) is set low only if the read register is
+                \emph{not} zero. In such a case, a register is read from as normal
+                using an Address-controlled read cycle. When attempting to read from
+                zero, resistors pull the data bus down, saving on parts over using
+                buffers.
+
+        \subsection{Operand Forwarding Disable}\label{sec:Regs:OpFwdDisEN}
+
+            To make operand forwarding possible, the ALU may need an input from the
+                registers, its own output, or a memory access. The registers therefore
+                need to be able to be "selectable" by the CPU Control to pass their
+                output on. The respective boards have buffered outputs which are enabled
+                as needed.
 
     \section{ALU}\label{sec:ALU}
 
