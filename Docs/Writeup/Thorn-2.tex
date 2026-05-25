@@ -135,92 +135,94 @@ morestring=[b]'       % also mark ' as string start/end
 
     \pagenumbering{arabic}
     \section{Introduction}\label{sec:Introduction}
-        \longlogo\ is a RISC-V CPU, designed to be fully compatable with the RV64i (integer only)
-            standard module as defined in the RISC-V Instruction Set Architecture 
-            (RV-ISA) specification \cite{RVISA}. It is a fully-pipelined design
-            with \pipestages parallel stages 
-            (see \linksection{sec:Intro:Pipeline})
-            with hazard avoidance (\linksection{sec:Intro:HazAvoid}) and 
-            operand forwarding (\linksection{sec:Intro:OpFwd}).
+        \longlogo\ is a RISC-V CPU, designed to be fully compatable with the 
+        RV64i (integer only) standard module as defined in the RISC-V 
+        Instruction Set Architecture (RV-ISA) specification \cite{RVISA}. 
+        It is a fully-pipelined design with \pipestages parallel stages
+        (see \linksection{sec:Intro:Pipeline}) with hazard avoidance 
+        (\linksection{sec:Intro:HazAvoid}) and operand forwarding 
+        (\linksection{sec:Intro:OpFwd}).
 
         This project has some fairly nebulous goals, but the general idea is
-            to learn how CPUs work internally and make something interesting.
-            They are here itemised:
-            
-            \begin{itemize}
-                \item Implement a RISC-V CPU
-                \item Utilise as few non-74 series chips as possible (no FPGA)
-                \item Design the circuitry "by hand"
-                \item Achieve \textasciitilde 40 MHz operation
-                \item Have fun :3
-            \end{itemize}
+        to learn how CPUs work internally and make something interesting.
+        They are here itemised:
+
+        \begin{itemize}
+            \item Implement a RISC-V CPU
+            \item Utilise as few non-74 series chips as possible (no FPGA)
+            \item Design the circuitry "by hand"
+            \item Achieve \textasciitilde 40 MHz operation
+            \item Have fun :3
+        \end{itemize}
 
         Please don't tell me I'm doing this inefficiently or that there article
-            better ways to implement things - I'm well aware.
+        better ways to implement things - I'm well aware.
 
         \subsection{Pipelining}\label{sec:Intro:Pipeline}
 
-            \subsubsection{Why \logo\ Differs From Classic RISC}
+            \subsubsection{Why and How \logo\ Differs From Classic RISC}
 
             The pipeline structure of \logo\ differs from the traditional RISC
-                one in that there are several more stages. These can be grouped
-                into largly the same functional blocks, but spread across more
-                stages; a setup reached after much design work on \oldlonglogo.
+            one in that there are several more stages. These can be grouped
+            into largely the same functional blocks, but spread across more
+            stages; a setup reached after much design work on \oldlonglogo.
 
-            Classic RISC is split into five stages: Fetch, Decode, Execute, Memory 
-                and Writeback; with every instruction passing through each stage 
-                in turn (with the correct options set). In implementing this, I 
-                decided to use SRAM to store the 32 registers and to avoid using 
-                asynchronous SRAM. The latter decision was based on the false 
-                assumption that this would make the control circuitry easier to 
-                design and less error prone. 
-                I maintained the Synchronous SRAM design for quite a while, getting 
-                as far as designing the whole control circuit for the registers 
-                and starting work on the ALU, but ran into problems with timings.
+            Classic RISC is split into five stages: Fetch, Decode, Execute, Memory
+            and Writeback; with every instruction passing through each stage
+            in turn (with the correct options set). 
+            In implementing this, I decided to use SRAM to store the 32 registers 
+            and to avoid using asynchronous SRAM. 
+            The latter decision was based on the false assumption that this 
+            would make the control circuitry easier to design and less error-prone.
+            I maintained the Synchronous SRAM design for quite a while, getting
+            as far as designing the whole control circuit for the registers
+            and starting work on the ALU, but ran into problems with timings.
 
-            The SRAM ic I had chosen - IS61NLP6432a \cite{IS61NLP6432a} - were 
-                themselves pipelined at three stages: Assert, wait, Read/Write. 
-                Each cycle of the CPU required three register accesses 
-                (two reads and a write), which was possible to achieve if each 
-                cycle was split into four phases, $\phi_{0}, \phi_{1}, \phi_{2}, 
-                \phi_{3}$. This imposed the requirement that every pipeline
-                stage in the CPU must take four cycles, which was insufficient
-                for the ALU to perform a 64-bit addition \emph{and} perform
-                conditional inversion of the second operand for subtraction and
-                check conditions. Thus, I decided to go back to the drawing board 
-                and start again.
+            The SRAM ic I had chosen - IS61NLP6432a \cite{IS61NLP6432a} - were
+            themselves pipelined at three stages: 
+            Assert, wait, Read/Write.
+            Each cycle of the CPU required three register accesses
+            (two reads and a write), which was possible to achieve if each
+            cycle was split into four phases, $\phi_{0}, \phi_{1}, \phi_{2},
+            \phi_{3}$. 
+            This imposed the requirement that every pipeline stage in the CPU 
+            must take four cycles, which was insufficient for the ALU to 
+            perform a 64-bit addition \emph{and} perform conditional inversion 
+            of the second operand for subtraction and check conditions. 
+            Thus, I decided to go back to the drawing board and start again.
 
             The current design of \logo's pipeline is based around the ALU,
-                rather than the registers. I needed four stages to add numbers,
-                plus two more to condition the inputs and outputs, giving six.
-                Register accesses can be done in one step by using two copies
-                of each register (a poor-man's dual-port RAM) which are written 
-                to simultaniously on the rising edge of the clock; then
-                separately read on the falling edge. Now using fast, 
-                \emph{asynchronous} SRAM instead.
+            rather than the registers. 
+            I needed four stages to add numbers, plus two more to condition the 
+            inputs and outputs, giving six.
+            Register accesses can be done in one step by using two copies
+            of each register (a poor-man's dual-port RAM) which are written
+            to simultaniously on the rising edge of the clock; then
+            separately read on the falling edge. Now using fast,
+            \emph{asynchronous} SRAM instead.
 
         \subsection{Hazard Avoidance}\label{sec:Intro:HazAvoid}
 
             In a pipelined system, there are frequently situations where one
-                instruction depends on the result of its predecessor. In such
-                a case, this results in a \textbf{Data Hazard} - what is contained
-                in register X is out of date, and reading this will produce
-                incorrect results.
+            instruction depends on the result of its predecessor. 
+            In such a case, this results in a \textbf{Data Hazard} - what 
+            is contained in register X is out of date, and reading this will 
+            produce incorrect results.
 
             Another hazard comes in the case that a conditional branch is dependent
-                on the outcome of a previous operation, resulting in a 
-                \textbf{Control Hazard}. The CPU must either stall new instructions
-                while the condition is evaluated, or speculatively execute code
-                for either the "branch" or "no branch" condition and throw it out if
-                needed.
-            
+            on the outcome of a previous operation, resulting in a
+            \textbf{Control Hazard}. 
+            The CPU must either stall new instructions while the condition is 
+            evaluated, or speculatively execute code for either the "branch" 
+            or "no branch" condition and throw it out if needed.
+
             \subsubsection{Adding Stalls}\label{sec:Intro:HazAvoid:Stalls}
 
-                In either hazard case, the simplest - albeit least efficient - 
-                    solution is to inject NO-OPs (NOPs) after the Decode stage 
-                    and only continue when there are no remaining hazards. 
-                    It is, however, trivial to come up with example programs which 
-                    result in more nops than executed instructions:
+                In either hazard case, the simplest - albeit least efficient -
+                solution is to inject NO-OPs (NOPs) after the Decode stage
+                and only continue when there are no remaining hazards.
+                It is, however, trivial to come up with example programs which
+                result in more nops than executed instructions:
 
                 \begin{lstlisting}[language={[RISC-V]Assembler}, frame=single,]
 ;Some silly code  :3c
@@ -231,19 +233,20 @@ add a0, a0, a5  ;Add lots of numbers in turn
 ;...
                 \end{lstlisting}
 
-                When executing the above program, the CPU is forced to insert NOPs
-                    between every instruction to allow the addition result to be fully
-                    written back to \lstinline[language={[RISC-V]Assembler}]|a0| before
-                    the next instruction is executed. A classic RISC-V architecture 
-                    with this simple hazard avoidance would \emph{actually} execute
-                    the code in Listing \ref{lst:Intro:HazAvoid:Stalls:ManyNOPs}
+                When executing the above program, the CPU is forced to insert 
+                NOPs between every instruction to allow the addition result to 
+                be fully written back to \lstinline[language={[RISC-V]Assembler}]|a0| 
+                before the next instruction is executed. 
+                A classic RISC-V architecture with this simple hazard avoidance 
+                would \emph{actually} execute the code in Listing 
+                \ref{lst:Intro:HazAvoid:Stalls:ManyNOPs}.
 
                 \begin{lstlisting}[
                         label={lst:Intro:HazAvoid:Stalls:ManyNOPs},
                         caption={Worst case scenario for consecutive adds.},
                         captionpos=b,
-                        language={[RISC-V]Assembler}, 
-                        frame=single, 
+                        language={[RISC-V]Assembler},
+                        frame=single,
                         float]
 ;Oops, all stalls  TwT
 add a0, a1, a2  ;Use a0 as tally
@@ -263,42 +266,44 @@ add a0, a0, a5  ;Add lots of numbers in turn
                 \end{lstlisting}
 
 
-                This effectively quarters the useful throughput of the CPU in the
-                    worst case, though most of the time this isn't likely to occur.
-                    Using this method, the number of NOPs scales linearly with the
-                    number of stages in the pipeline, so there is strong incentive
-                    to use a better system. Such a system should be able to feed
-                    data from one stage to another in order to skip some of the
-                    waiting.
+                This effectively quarters the useful throughput of the CPU in 
+                the worst case, though most of the time this isn't likely to 
+                occur.
+                Using this method, the number of NOPs scales linearly with the
+                number of stages in the pipeline, so there is strong incentive
+                to use a better system. 
+                Such a system should be able to feed data from one stage to 
+                another in order to skip some of the waiting.
 
             \subsubsection{Operand Forwarding}\label{sec:Intro:OpFwd}
 
-                \textbf{Operand Forwarding} is one way to reduce the number of stall
-                    cycles introduced with a pipelined system. Here, in the case that
-                    an instruction needs data which has not yet been written to a
-                    register, but \emph{is available within the pipeline}, that data
-                    can be fed forwards early so fewer stalls need to be introduced.
+                \textbf{Operand Forwarding} is one way to reduce the number of 
+                stall cycles introduced with a pipelined system. 
+                Here, in the case that an instruction needs data which has not 
+                yet been written to a register, but \emph{is available within 
+                the pipeline}, that data can be fed forwards early so fewer 
+                stalls need to be introduced.
 
-                This method becomes very important the longer a pipeline becomes due
-                    to a greater number of cycles before the completion of each
-                    instruction: there is greater chance that a following instruction
-                    is dependent on a previous one \emph{and} that data takes longer
-                    to become available.
+                This method becomes very important the longer a pipeline becomes 
+                due to a greater number of cycles before the completion of each
+                instruction: there is greater chance that a following instruction
+                is dependent on a previous one \emph{and} that data takes longer
+                to become available.
 
-                Assuming the same code snipped as in 
-                    \linksection{sec:Intro:HazAvoid:Stalls}, a perfect system of 
-                    operand forwarding could reduce the number of NOPs to zero 
-                    - i.e. what is written is executed exactly.
+                Assuming the same code snipped as in
+                \linksection{sec:Intro:HazAvoid:Stalls}, a perfect system of
+                operand forwarding could reduce the number of NOPs to zero
+                - i.e. what is written is executed exactly.
 
-                In \longlogo\ however, there is an additional complication which arises
-                    from the use of a pipelined ALU: the final result is made available
-                    in chunks across multiple stages or, should conditions need
-                    evaluation, only available after the final stage.
+                In \longlogo\ however, there is an additional complication which 
+                arises from the use of a pipelined ALU: the final result is made 
+                available in chunks across multiple stages or, should conditions 
+                need evaluation, only available after the final stage.
 
                 %Consecutive adds thru piped ALU
                 \begin{figure}
                     \centering
-                    
+
                     \begin{tabularx}{\textwidth}{
                         |>{\centering\arraybackslash}X
                         |>{\centering\arraybackslash}X
@@ -308,7 +313,7 @@ add a0, a0, a5  ;Add lots of numbers in turn
                         |>{\centering\arraybackslash}X
                         |
                         }
-                        
+
                         \hhline{------}
                         Invert? &Add 1  &Add 2  &Add 3  &Add 4  &Cond.  \\
                         \hhline{|-|-|-|-|-|-|}
@@ -318,58 +323,59 @@ add a0, a0, a5  ;Add lots of numbers in turn
 
                         \rowcolor{lightgray}
                         \cellcolor{violet!20!white}I3   &\cellcolor{violet!50!white}I2 &   &   &   &   \\  \hhline{|-|-|-|-|-|-|}
-                        
+
                         \rowcolor{lightgray}
                         \cellcolor{green!20!white}I4    &\cellcolor{violet!20!white}I3 &\cellcolor{violet!50!white}I2 &   &   &   \\  \hhline{|-|-|-|-|-|-|}
-                        
+
                         \rowcolor{lightgray}
                         \cellcolor{green!50!white}I5    &\cellcolor{green!20!white}I4 &\cellcolor{violet!20!white}I3 &\cellcolor{violet!50!white}I2 &   &   \\  \hhline{|-|-|-|-|-|-|}
-                        
+
                         \rowcolor{lightgray}
                             &\cellcolor{green!50!white}I5 &\cellcolor{green!20!white}I4 &\cellcolor{violet!20!white}I3 &\cellcolor{violet!50!white}I2 &   \\  \hhline{|-|-|-|-|-|-|}
-                        
+
                         \rowcolor{lightgray}
                             &   &\cellcolor{green!50!white}I5 &\cellcolor{green!20!white}I4 &\cellcolor{violet!20!white}I3 &\cellcolor{violet!50!white}I2 \\  \hhline{|-|-|-|-|-|-|}
-                        
+
                         \rowcolor{lightgray}
                             &   &   &\cellcolor{green!50!white}I5 &\cellcolor{green!20!white}I4 &\cellcolor{violet!20!white}I3 \\  \hhline{|-|-|-|-|-|-|}
-                        
+
                         \rowcolor{lightgray}
                             &   &   &   &\cellcolor{green!50!white}I5 &\cellcolor{green!20!white}I4 \\  \hhline{|-|-|-|-|-|-|}
-                        
+
                         \rowcolor{lightgray}
                             &   &   &   &   &\cellcolor{green!50!white}I5 \\  \hhline{|-|-|-|-|-|-|}
 
                         \hhline{------}
-                        
+
                     \end{tabularx}
-                    \caption{Execution flow through a pipelined ALU. $I_{n}$ refers 
+                    \caption{Execution flow through a pipelined ALU. $I_{n}$ refers
                              to line number in code listing.}
                     \label{fig:Intro:OpFwd:ALUBehav}
                 \end{figure}
 
                 In \cref{fig:Intro:OpFwd:ALUBehav}, each of the \emph{Add} stages
-                    performs a 16-bit addition of each \ttfamily int16 \normalfont 
-                    chunk of the 64-bit inputs. If operand forwarding were to be 
-                    used, the output of \emph{Add 1} would need to be fed back to 
-                    its inputs for the next instruction.
-                    The same would be needed for each subsequent stage too.
-                    See \linksection{sec:ALU} for how this is actually done.
+                performs a 16-bit addition of each \ttfamily int16 \normalfont
+                chunk of the 64-bit inputs. 
+                If operand forwarding were to be used, the output of \emph{Add 1} 
+                would need to be fed back to its inputs for the next instruction.
+                The same would be needed for each subsequent stage too.
+                See \linksection{sec:ALU} for how this is actually done.
 
     \section{Program Counter}\label{sec:PC}
 
-        The PC's job is (generally) to increment by 4 every clock cycle to fetch the
-            next instruction in memory. On occasion, it will need to stall in place, 
-            load a provided value, or add a constant to its previous value to branch.
+        The PC's job is (generally) to increment by 4 every clock cycle to fetch 
+        the next instruction in memory. 
+        On occasion, it will need to stall in place, load a provided value, or 
+        add a constant to its previous value to branch.
 
-        While outwardly simple, this is fairly complex to actually implement in 64 bits,
-            expecially the branch operation which requires a 12-bit add, then a carry to 
-            propagate up the remaining bits. Since there could realistically be any
-            arbitray sequence of branches, jumps, normal increments or stalls, all of
-            the separate branches need to be done in parallel and selected from at the
-            very end.
+        While outwardly simple, this is fairly complex to actually implement in 
+        64 bits, expecially the branch operation which requires a 12-bit add, 
+        then a carry to propagate up the remaining bits. 
+        Since there could realistically be any arbitrary sequence of branches, 
+        jumps, normal increments or stalls, all of the separate branches need to
+        be done in parallel and selected from at the very end.
 
-        
+
 
     \section{Decode Logic}\label{sec:Decode}
 
@@ -377,318 +383,445 @@ add a0, a0, a5  ;Add lots of numbers in turn
 
     \section{Registers}\label{sec:Regs}
 
-        RV64i specifies 32 64-bit general-purpose registers and a program counter, PC.
-            x0 is hardwired to \verb|0x0000 0000 0000 0000|; there is no stack
-            pointer. None of the registers are otherwise special, but do have expected
-            uses as per the calling convention \cite{RV-CallConv}, 
-            shown in \cref{tab:Regs:CallConv}
+        RV64i specifies 32 64-bit general-purpose registers and a program
+        counter, PC. x0 is hard-wired to \verb|0x0000 0000 0000 0000|; there is 
+        no stack pointer.
+        None of the registers are otherwise special, but do have expected uses 
+        as per the calling convention \cite{RV-CallConv}, shown in 
+        \cref{tab:Regs:CallConv}.
 
         %Calling convention table
         \begin{table}[htb!]
             \centering
             \caption{RISC-V calling convention}\label{tab:Regs:CallConv}
-            
+
             \begin{tabularx}{\textwidth}{
                 >{\hsize=0.15\hsize\raggedright\arraybackslash}X
                 >{\hsize=0.20\hsize\raggedright\arraybackslash}X
                 >{\hsize=0.35\hsize\raggedright\arraybackslash}X
                 >{\hsize=0.30\hsize\raggedright\arraybackslash}X
                 }
-                
+
                 \toprule
-                
+
                 Register    &ABI Mnemonic   &Meaning    &Preserved across calls?    \\
-                
+
                 \midrule\addlinespace
 
-                x0      &zero   &Zero     &---(Immutable)  \\
-                x1      &ra     &Return address     &No     \\
-                x2      &sp     &Stack Pointer      &Yes    \\
-                x3      &gp     &Global Pointer     &---(Unallocatable) \\
-                x4      &tp     &Thread Pointer     &---(Unallocatable) \\
-                x5-7    &t0-2   &Temp. Registers    &No     \\
-                x8-9    &s0-s1  &Callee-saved regs. &Yes    \\
-                x10-17  &a0-7   &Argument registers &No     \\
-                x18-27  &s2-11  &Callee-saved regs. &Yes    \\
-                x28-31  &t3-6   &Temp. Registers    &No     \\
+                x0      &zero   &Zero     &--- (Immutable)                  \\
+                x1      &ra     &Return address     &No                     \\
+                x2      &sp     &Stack Pointer      &Yes                    \\
+                x3      &gp     &Global Pointer     &--- (Unallocatable)    \\
+                x4      &tp     &Thread Pointer     &--- (Unallocatable)    \\
+                x5-7    &t0-2   &Temp. Registers    &No                     \\
+                x8-9    &s0-s1  &Callee-saved regs. &Yes                    \\
+                x10-17  &a0-7   &Argument registers &No                     \\
+                x18-27  &s2-11  &Callee-saved regs. &Yes                    \\
+                x28-31  &t3-6   &Temp. Registers    &No                     \\
 
                 \bottomrule
 
             \end{tabularx}
         \end{table}
 
-        As each register is effectively the same, they are most easily implemented
-            using SRAM. Learning from \oldlonglogo, I have decided to use the
-            IS61WV6416DBLL-10TLI-TR \cite{RegRAMChip}; it's a 
-            64k x 16-bit asynchronous SRAM ic with a 10 ns access time and single
-            3.3 V supply.
+        As each register is effectively the same, they are most easily
+        implemented using SRAM.
+        Learning from \oldlonglogo, I have decided to use the \ramname 
+        \cite{RegRAMChip}; it's a 64k x 16-bit asynchronous SRAM with a 10 ns 
+        access time and single 3.3 V supply.
 
         \subsection{Theory of Operation}\label{sec:Regs:TheoryOp}
-        
-        For every RV64i operation, there are up to two operands, meaning up to two
-            registers may be read each cycle. There may also be a value written into
-            a register.
-            To avoid using multiport RAM, two copies of the registers are needed:
-            \textbf{x} and \textbf{y}; these two are both written to and read from
-            at the same time. The \ramshort is 16-bit, so there are two sets of four
-            RAM chips total.
 
-            \begin{figure}[htb]
+            For every RV64i operation, there are up to two operands, meaning up 
+            to two registers may be read each cycle. There may also be a value 
+            written into a register.
+            To avoid using multiport RAM, two copies of the registers are 
+            needed: \textbf{x} and \textbf{y}; these two are both written to and 
+            read from at the same time.
+            The \ramshort\  is 16-bit, so there are two sets of four RAM chips
+            total.
+
+            \begin{figure}[htb!]
                 \includegraphics[width=\textwidth]{Figures/RegisterLayout.png}
                 \caption{The \longlogo\ register file.}
                 \label{fig:Regs:TheoryOp:StdRegFile}
             \end{figure}
 
-        Both access to \textbf{x} and \textbf{y} (Read/Write) occur within one cycle;
-            writes are completed on the rising edge, $\phi_{1}$; and reads on the
-            falling edge, $\phi_{2}$. Doing it in this order means neither the 
-            writeback value, \(D_{WB}\), nor the two read values, \(D_{Rs1}\) and 
-            $D_{Rs2}$, need additional latches - the former is latched from the output
-            of the previous stage and the latter are latched on the next $\phi_{1}$.
-            
-        Some operations, such as conditional branches, compute a "result" which isn't
-            needed. Whether such results are written to a register is tracked in the 
-            CPU-wide control logic [LINK HERE] which issues the \textbf{WRT} signal.
-        
-        % Register Timing Diagram
-        \begin{figure}[htb!]
-            \centering
-            \begin{tikzpicture}[timing/picture, timing/unit=5mm]
+            Both access to \textbf{X} and \textbf{Y} (Read/Write) occur within 
+            one cycle; writes are completed on the rising edge, $\phi_{1}$; and 
+            reads on the falling edge, $\phi_{2}$. 
+            This order of operations means the register card doesn't need to 
+            latch its input, WB\_DATA, or outputs, \(\mathrm{REG\_OUT_{1}}\) and 
+            \(\mathrm{REG\_OUT_{2}}\).
 
-                %5mm before first clk, 30mm for [Read 0, Write, No Write], 5mm after last clock
+            For the purposes of explanation, both RAM banks will be 
+            collectively referred to as "R".
+            The logic is otherwise identical between \textbf{X} and \textbf{Y},
+            so either could be inserted in R's place.
 
-                \timing[name=CLKTim] at (0,0) {
-                        LN(T0) 
-                        3{H}N(T1) 3{L}N(T2) 
-                        3{H}N(T3) 3{L}N(T4) 
-                        3{H}N(T5) 3{L}N(T6) 
-                        H
-                    }; 
-                    \node[anchor=east](CLK_Label) at (CLKTim.west) {CLK};
+            \subsubsection{Write Phase, \(\mathbf{\phi_{1}}\)}
+                \label{sec:Regs:TheoryOp:Write}
 
-                \timing[name=Adr1] at (0,-2) {
-                        D{} 
-                        6{D}{00000} 
-                        6{D}{01000} 
-                        6{D}{01001} 
-                        D
-                    };
-                    \node[anchor=east](Adr1_Label) at (Adr1.west) {\(\mathrm{RS_{1}}\)[5]};
+                Register writes occur on the rising edge of the clock, 
+                \(\phi_{1}\), and are controlled only by the external 
+                \textbf{WRT} signal. 
+                Regardless of whether a value is to be written to a register, 
+                the address for that 'write' is selected.
+                This setup helps to minimise control circuitry.
 
-                \timing[name=Adr2] at (0,-4) {
-                        D{} 
-                        6{D}{01010} 
-                        6{D}{00000} 
-                        6{D}{01011} 
-                        D
-                    };
-                    \node[anchor=east](Adr2_Label) at (Adr2.west) {\(\mathrm{RS_{2}}\)[5]};
+                \paragraph{Write Enabled, \textbf{WRT} = 1}
+                    \label{par:Regs:TheoryOp:Write:Wrt}
 
-                \timing[name=wAdr] at (0,-6) {
-                        D{} 
-                        6{D}{00000} 
-                        6{D}{11111} 
-                        6{D}{11110} 
-                        D
-                    };
-                    \node[anchor=east](wAdr_Label) at (wAdr.west) {WB[5]};
+                    When \textbf{WRT} is high, \(\mathbf{\overline{WE}}\) goes
+                    low and puts the \ramshort\ into a write cycle. 
+                    \textbf{R\_BUS} is driven to the value on \textbf{WB\_DATA} 
+                    which is written into the selected register.
 
-                \timing[name=WrCtrl] at (0,-8) {
-                        U 
-                        3{L} 3{H} 
-                        3{L} 3{H}
-                        3{H} 3{H}
-                        U
-                    };
-                    \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {\(\mathrm{\overline{WE}}\)};
+                \paragraph{Write Disabled, \textbf{WRT} = 0}
+                    \label{par:Regs:TheoryOp:Write:NoWrt}
 
-                \timing[name=WrCtrl] at (0,-10) {
-                        U 
-                        3{H} 3{H} 
-                        3{H} 3{L}
-                        3{H} 3{L}
-                        U
-                    };
-                    \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {\(\mathrm{\overline{OE_{X}}}\)};
+                    When \textbf{WRT} is low, \(\mathbf{\overline{WE}}\) remains
+                    high and the \ramshort s\ have their output disabled via
+                    \(\mathbf{\overline{OE_{R}}}\).
+                    \textbf{R\_BUS} is then passively pulled down to a value of
+                    \verb|0x0000 0000 0000 0000|.
 
-                \timing[name=WrCtrl] at (0,-12) {
-                        U 
-                        3{H} 3{L} 
-                        3{H} 3{H}
-                        3{H} 3{L}
-                        U
-                    };
-                    \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {\(\mathrm{\overline{OE_{Y}}}\)};
+            \subsubsection{Read Phase: \(\mathbf{\phi_{2}}\)}
+                \label{sec:Regs:TheoryOp:Read}
+
+                Reads occur on the falling edge of the clock, \(\phi_{2}\), and
+                may give a real register value or a zero depending on the read
+                address (see below).
+                Regardless of whether an \ramshort s is actually read from, its 
+                address lines, \(\mathbf{ADR_{R}}\), are set as if it was.
                 
-                \timing[name=xAdr] at (0, -14) {
-                        D{} 
-                        3{D}{00000} 3{D}{00000} 
-                        3{D}{11111} 3{D}{01000} 
-                        3{D}{11110} 3{D}{01001} 
-                        D{}
-                    };
-                    \node[anchor=east](xAdr_Label) at (xAdr.west) {\(\mathrm{ADR_{X}}\)[5]};
+                \paragraph{Not Reading From 'zero', \(\mathbf{RS_{R} \ne 0}\)}
+                    \label{par:Regs:TheoryOp:Read:NotZero}
+                    
+                    When reading from any register other than \emph{x0}, 
+                    \(\mathbf{Z_{R}}\) will be high, setting
+                    \(\mathbf{\overline{OE_{R}}}\) low during \(\phi_{2}\).
+                    \textbf{R\_BUS} is thus driven to the contents of \emph{xR}.
 
-                \timing[name=yAdr] at (0, -16) {
-                        D{} 
-                        3{D}{00000} 3{D}{01010} 
-                        3{D}{11111} 3{D}{00000} 
-                        3{D}{11110} 3{D}{01011} 
+                \paragraph{Reading From 'zero', \(\mathbf{RS_{R}=0}\)}
+                    \label{par:Regs:TheoryOp:Read:Zero}
+
+                    When reading from \emph{x0}, \(\mathbf{\overline{Z_{R}}}\)
+                    goes low and, during \(\phi_{2}\), 
+                    \(\mathbf{\overline{OE_{R}}}\) stays high, again leaving
+                    \textbf{R\_BUS} to be passively pulled to
+                    \verb|0x0000 0000 0000 0000|
+
+            \subsubsection{Output Buffers}\label{sec:Regs:TheoryOp:OutBuf}
+               
+                Since \logo\ will be implementing operand forwarding, there are
+                some instances where the input to the ALU isn't necessarily from
+                the register file.
+                Therefore, the register file needs to be "selectable" by the CPU
+                control logic.
+                As such, the outputs of this section, \(\mathbf{REG\_OUT_{1}}\) 
+                and \(\mathbf{REG\_OUT_{2}}\) are connected to their respective
+                buses via tri-state buffers.
+
+            % Register Timing Diagram
+            \begin{figure}[htb!]
+                \centering
+                \begin{tikzpicture}[timing/picture, timing/unit=5mm]
+
+                    %5mm before first clk, 30mm for [Read 0, Write, No Write], 5mm after last clock
+
+                    \timing[name=CLKTim] at (0,0) {
+                            LN(T0)
+                            3{H}N(T1) 3{L}N(T2)
+                            3{H}N(T3) 3{L}N(T4)
+                            3{H}N(T5) 3{L}N(T6)
+                            H
+                        };
+                        \node[anchor=east](CLK_Label) at (CLKTim.west){
+                            CLK
+                        };
+
+                    \timing[name=Adr1] at (0,-2) {
+                            D{}
+                            6{D}{00000}
+                            6{D}{01000}
+                            6{D}{01001}
+                            D
+                        };
+                        \node[anchor=east](Adr1_Label) at (Adr1.west){
+                            \(\mathrm{RS_{1}}\)[5]
+                        };
+
+                    \timing[name=Adr2] at (0,-4) {
+                            D{}
+                            6{D}{01010}
+                            6{D}{00000}
+                            6{D}{01011}
+                            D
+                        };
+                        \node[anchor=east](Adr2_Label) at (Adr2.west){
+                            \(\mathrm{RS_{2}}\)[5]
+                        };
+
+                    \timing[name=wAdr] at (0,-6) {
+                            D{}
+                            6{D}{00000}
+                            6{D}{11111}
+                            6{D}{11110}
+                            D
+                        };
+                        \node[anchor=east](wAdr_Label) at (wAdr.west){
+                            WB[5]
+                        };
+
+                    \timing[name=WrCtrl] at (0,-8) {
+                            U
+                            3{L} 3{H}
+                            3{L} 3{H}
+                            3{H} 3{H}
+                            U
+                        };
+                        \node[anchor=east](WrCtrl_Label) at (WrCtrl.west){
+                            \(\mathrm{\overline{WE}}\)
+                        };
+
+                    \timing[name=WrCtrl] at (0,-10) {
+                            U
+                            3{H} 3{H}
+                            3{H} 3{L}
+                            3{H} 3{L}
+                            U
+                        };
+                        \node[anchor=east](WrCtrl_Label) at (WrCtrl.west){
+                            \(\mathrm{\overline{OE_{X}}}\)
+                        };
+
+                    \timing[name=WrCtrl] at (0,-12) {
+                            U
+                            3{H} 3{L}
+                            3{H} 3{H}
+                            3{H} 3{L}
+                            U
+                        };
+                        \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {
+                            \(\mathrm{\overline{OE_{Y}}}\)
+                        };
+
+                    \timing[name=xAdr] at (0, -14) {
+                            D{}
+                            3{D}{00000} 3{D}{00000}
+                            3{D}{11111} 3{D}{01000}
+                            3{D}{11110} 3{D}{01001}
+                            D{}
+                        };
+                        \node[anchor=east](xAdr_Label) at (xAdr.west){
+                            \(\mathrm{ADR_{X}}\)[5]
+                        };
+
+                    \timing[name=yAdr] at (0, -16) {
+                            D{}
+                            3{D}{00000} 3{D}{01010}
+                            3{D}{11111} 3{D}{00000}
+                            3{D}{11110} 3{D}{01011}
+                            D{}
+                        };
+                        \node[anchor=east](yAdr_Label) at (yAdr.west){
+                            \(\mathrm{ADR_{Y}}\)[5]
+                        };
+
+                    \timing[name=xData] at (0, -18) {
+                            D{}
+                            3{D}{\(\mathrm{WB\_DATA}\)} 3{D}{'zero'}
+                            3{D}{\(\mathrm{WB\_DATA}\)} 3{D}{'s0'}
+                            3{D}{'zero'} 3{D}{'s1'}
+                            D{}
+                        };
+                        \node[anchor=east](xData_Label) at (xData.west){
+                            \(\mathrm{X\_BUS}\) [64]
+                        };
+
+                    \timing[name=yData] at (0, -20) {
                         D{}
-                    };
-                    \node[anchor=east](yAdr_Label) at (yAdr.west) {\(\mathrm{ADR_{Y}}\)[5]};
-                
-                \timing[name=xData] at (0, -18) {
-                        D{}
+                        3{D}{\(\mathrm{WB\_DATA}\)} 3{D}{'a0'}
                         3{D}{\(\mathrm{WB\_DATA}\)} 3{D}{'zero'}
-                        3{D}{\(\mathrm{WB\_DATA}\)} 3{D}{'s0'}
-                        3{D}{00000} 3{D}{'s1'}
+                        3{D}{'zero'} 3{D}{'t5'}
                         D{}
-                    };
-                    \node[anchor=east](xData_Label) at (xData.west) {\(\mathrm{X\_BUS}\) [64]};
+                        };
+                        \node[anchor=east](yData_Label) at (yData.west){
+                            \(\mathrm{Y\_BUS}\) [64]
+                        };
 
-                \timing[name=yData] at (0, -20) {
-                    D{}
-                    3{D}{\(\mathrm{WB\_DATA}\)} 3{D}{'a0'}
-                    3{D}{\(\mathrm{WB\_DATA}\)} 3{D}{'zero'}
-                    3{D}{00000} 3{D}{'t5'}
-                    D{}
-                    };
-                    \node[anchor=east](yData_Label) at (yData.west) {\(\mathrm{Y\_BUS}\) [64]};
+                    \timing[name=WrCtrl] at (0,-22) {
+                            U
+                            3{H} 3{L}
+                            3{H} 3{H}
+                            3{H} 3{L}
+                            U
+                        };
+                        \node[anchor=east](WrCtrl_Label) at (WrCtrl.west){
+                            \(\mathrm{\overline{BUF\_EN_{X}}}\)
+                        };
 
-                \timing[name=WrCtrl] at (0,-22) {
-                        U 
-                        3{H} 3{L} 
-                        3{H} 3{H}
-                        3{H} 3{L}
-                        U
-                    };
-                    \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {\(\mathrm{\overline{BUF\_EN_{X}}}\)};
-
-                \timing[name=WrCtrl] at (0,-24) {
-                        U 
-                        3{H} 3{L} 
-                        3{H} 3{H}
-                        3{H} 3{H}
-                        U
-                    };
-                    \node[anchor=east](WrCtrl_Label) at (WrCtrl.west) {\(\mathrm{\overline{BUF\_EN_{Y}}}\)};
+                    \timing[name=WrCtrl] at (0,-24) {
+                            U
+                            3{H} 3{L}
+                            3{H} 3{H}
+                            3{H} 3{H}
+                            U
+                        };
+                        \node[anchor=east](WrCtrl_Label) at (WrCtrl.west){
+                            \(\mathrm{\overline{BUF\_EN_{Y}}}\)
+                        };
 
 
-                \timing[name=yData] at (0, -26) {
-                    D{}
-                    3{U} 3{D}{'zero'}
-                    3{U} 3{U}
-                    3{U} 3{D}{'s1'}
-                    D{}
-                    };
-                    \node[anchor=east](yData_Label) at (yData.west) {\(\mathrm{REG\_OUT_{1}}\) [64]};
+                    \timing[name=yData] at (0, -26) {
+                        D{}
+                        3{U} 3{D}{'zero'}
+                        3{U} 3{U}
+                        3{U} 3{D}{'s1'}
+                        D{}
+                        };
+                        \node[anchor=east](yData_Label) at (yData.west){
+                            \(\mathrm{REG\_OUT_{1}}\) [64]
+                        };
 
-                \timing[name=yData] at (0, -28) {
-                    D{}N(B0) 
-                    3{U}N(B1) 3{D}{'a0'}N(B2) 
-                    3{U}      3{U}N(B4) 
-                    3{U}      3{U}N(B6) 
-                    D{}
-                    };
-                    \node[anchor=east](yData_Label) at (yData.west) {\(\mathrm{REG\_OUT_{2}}\) [64]};
+                    \timing[name=yData] at (0, -28) {
+                        D{}N(B0)
+                        3{U}N(B1) 3{D}{'a0'}N(B2)
+                        3{U}      3{U}N(B4)
+                        3{U}      3{U}N(B6)
+                        D{}
+                        };
+                        \node[anchor=east](yData_Label) at (yData.west){
+                            \(\mathrm{REG\_OUT_{2}}\) [64]
+                        };
 
-                \draw[black](T0.HIGH)+(0, 3.5) -- (B0.low) node[pos=0, anchor=north west, black, align=left]{
-                    \scriptsize WRT = 1\\
-                    \(\scriptstyle REG\_SEL_{X}\) = 1\\
-                    \(\scriptstyle REG\_SEL_{Y}\) = 1
-                    };
-                \draw[black](T2.HIGH)+(0, 3.5) -- (B2.low) node[pos=0, anchor=north west, black, align=left]{
-                    \scriptsize WRT = 1\\
-                    \(\scriptstyle REG\_SEL_{X}\) = 0\\
-                    \(\scriptstyle REG\_SEL_{Y}\) = 0
-                    };
-                \draw[black](T4.HIGH)+(0, 3.5) -- (B4.low) node[pos=0, anchor=north west, black, align=left]{
-                    \scriptsize WRT = 0\\
-                    \(\scriptstyle REG\_SEL_{X}\) = 1\\
-                    \(\scriptstyle REG\_SEL_{Y}\) = 0
-                    };
-                \draw[black](T6.HIGH)+(0, 3.5) -- (B6.low) ;
+                    \draw[black](T0.HIGH)+(0, 3.5) -- (B0.low) node[pos=0, anchor=north west, black, align=left]{
+                        \scriptsize WRT = 1\\
+                        \(\scriptstyle REG\_SEL_{X}\) = 1\\
+                        \(\scriptstyle REG\_SEL_{Y}\) = 1
+                        };
+                    \draw[black](T2.HIGH)+(0, 3.5) -- (B2.low) node[pos=0, anchor=north west, black, align=left]{
+                        \scriptsize WRT = 1\\
+                        \(\scriptstyle REG\_SEL_{X}\) = 0\\
+                        \(\scriptstyle REG\_SEL_{Y}\) = 0
+                        };
+                    \draw[black](T4.HIGH)+(0, 3.5) -- (B4.low) node[pos=0, anchor=north west, black, align=left]{
+                        \scriptsize WRT = 0\\
+                        \(\scriptstyle REG\_SEL_{X}\) = 1\\
+                        \(\scriptstyle REG\_SEL_{Y}\) = 0
+                        };
+                    \draw[black](T6.HIGH)+(0, 3.5) -- (B6.low) ;
 
-                \node[anchor=south west] at (T0.low) {\footnotesize\(\phi_{1}\)};
-                \node[anchor=south west] at (T1.low) {\footnotesize\(\phi_{2}\)};
+                    \node[anchor=south west] at (T0.low) {\footnotesize\(\phi_{1}\)};
+                    \node[anchor=south west] at (T1.low) {\footnotesize\(\phi_{2}\)};
 
-                \node[anchor=south west] at (T2.low) {\footnotesize\(\phi_{1}\)};
-                \node[anchor=south west] at (T3.low) {\footnotesize\(\phi_{2}\)};
+                    \node[anchor=south west] at (T2.low) {\footnotesize\(\phi_{1}\)};
+                    \node[anchor=south west] at (T3.low) {\footnotesize\(\phi_{2}\)};
 
-                \node[anchor=south west] at (T4.low) {\footnotesize\(\phi_{1}\)};
-                \node[anchor=south west] at (T5.low) {\footnotesize\(\phi_{2}\)};
+                    \node[anchor=south west] at (T4.low) {\footnotesize\(\phi_{1}\)};
+                    \node[anchor=south west] at (T5.low) {\footnotesize\(\phi_{2}\)};
 
-            \end{tikzpicture}
-            
-            \caption{Register file timing diagram.}
-            \label{tim:Regs:TheoryOp:RegTiming}
-        \end{figure}
+                \end{tikzpicture}
+
+                \caption{Register file timing diagram.}
+                \label{tim:Regs:TheoryOp:RegTiming}
+            \end{figure}
 
         \subsection{Control Logic}\label{sec:Regs:CtrlLogic}
 
-            The design shown in \cref{fig:Regs:TheoryOp:StdRegFile} shows the control
-                logic for the register file. 
+            \Cref{fig:Regs:TheoryOp:StdRegFile} shows an overview of the 
+            register file. The control signals present are described in
+            \cref{tab:Regs:TheoryOp:LogicTab}.
 
-            The design shown in \cref{fig:Regs:TheoryOp:StdRegFile} features two main
-                elements which require "control logic" - the provided addresses, 
-                $\mathbf{x}_{adr}$ and $\mathbf{y}_{adr}$, and control over the data
-                busses, $\mathbf{D}_{Rs1}$ and $\mathbf{D}_{Rs2}$. 
-                In $\phi_{1}$, both are dedicated to the writeback operation and the 
-                read operation in $\phi_{2}$. 
-                This occurs \emph{whether or not} the write is needed, the only 
-                difference in the latter case being whether the \ramshort\ commits
-                $\mathbf{D}_{WB}$ to storage (shown in \cref{tim:Regs:TheoryOp:RegTiming}).
-            
-            In \(\phi_{1}\), if \textbf{WRT} is high, a \(\overline{WE}\) controlled
-                write cycle occurs with \(\overline{OE}\) set high. This is the simplest
-                option given the signals needed.
-            
-            In \(\phi_{2}\), \(\overline{OE}\) is set low only if the read register is
-                \emph{not} zero. In such a case, a register is read from as normal
-                using an Address-controlled read cycle. When attempting to read from
-                zero, resistors pull the data bus down, saving on parts over using
-                buffers.
+            \begin{table}[htb!]
+                \centering
+                \renewcommand{\arraystretch}{1.5}
+                \caption{Register Card control signal definitions.}
+                \label{tab:Regs:TheoryOp:LogicTab}
+                \begin{tabularx}{\textwidth}{
+                        >{\hsize=0.2\hsize\raggedright\arraybackslash}X
+                        >{\hsize=0.4\hsize\raggedright\arraybackslash}X
+                        >{\hsize=0.4\hsize\raggedright\arraybackslash}X
+                    }
+                    \toprule
+                    Signal                      &Equation   &Explanation                \\
+                    \midrule\addlinespace
+                    \textbf{CLK}                &---        &Clock input                \\
+                    \(\mathbf{RS_{1}}\)         &---        &Read address 1             \\
+                    \(\mathbf{RS_{2}}\)         &---        &Read address 2             \\
+                    \(\mathbf{WB}\)             &---        &Write address              \\
+                    \textbf{WRT}                &---        &Write enable               \\
+                    \(\mathbf{REG\_SEL_{1}}\)   &---        &Output \textbf{X\_BUS}     \\
+                    \(\mathbf{REG\_SEL_{2}}\)   &---        &Output \textbf{Y\_BUS}     \\
+                    \textbf{WB\_DATA}           &---        &Data to write this cycle   \\
+                    \midrule\addlinespace
+                    
+                     \(\mathbf{\overline{Z_{X}}}\)   
+                    &\(\sum_{i=0}^{4}\left(\mathbf{RS_{1,i}}\right)\)
+                    &Not reading from 'zero'\\
 
-        \subsection{Operand Forwarding Disable}\label{sec:Regs:OpFwdDisEN}
+                      \(\mathbf{\overline{Z_{Y}}}\)   
+                    &\(\sum_{i=0}^{4}\left(\mathbf{RS_{2,i}}\right)\)
+                    &\\
 
-            To make operand forwarding possible, the ALU may need an input from the
-                registers, its own output, or a memory access. The registers therefore
-                need to be able to be "selectable" by the CPU Control to pass their
-                output on. The respective boards have buffered outputs which are enabled
-                as needed.
+                     \(\mathbf{\overline{OE_{X}}}\)   
+                    &\(\overline{\mathbf{\overline{Z_{X}}} \cdot \mathbf{\overline{CLK}}}\)
+                    &RAM output enable\\
+
+                     \(\mathbf{\overline{OE_{Y}}}\)   
+                    &\(\overline{\mathbf{\overline{Z_{Y}}} \cdot \mathbf{\overline{CLK}}}\)
+                    &\\\midrule\addlinespace
+
+                     \(\mathbf{\overline{WE}}\)
+                    &\(\overline{\mathbf{CLK \cdot WRT}}\)
+                    &Write enable signal\\
+
+                     \(\mathbf{REG\_OUT_{1}}\)
+                    &\(\overline{\mathbf{\overline{CLK} \cdot REG\_SEL_{1}}}\)
+                    &Enable output to ALU\\
+
+                     \(\mathbf{REG\_OUT_{2}}\)
+                    &\(\overline{\mathbf{\overline{CLK} \cdot REG\_SEL_{2}}}\)
+                    &\\
+                    
+                    \bottomrule
+
+                \end{tabularx}
+            \end{table}
+
 
     \section{ALU}\label{sec:ALU}
 
-        The \longlogo\ ALU is comprised of three blocks - the Adder, Shifter and Logicer. 
-            They do what their name suggests: the Adder computes $A \pm B$; the 
-            Shifter shifts $A$ up or down by \textit{n} bits; and the Logic-er 
-            performs the bitwise logic operations $A \cdot B$, $A + B$ and 
-            $A \oplus B$. The 64-bit values $A$ and $B$ may be read from registers 
-            or immediate values derived from an instruction. Each of the three blocks 
-            are contained on separate circuit boards, but run in parallel. Their 
-            outputs are calculated for all inputs with the relevant one forwarded to 
+        The \longlogo ALU is comprised of three blocks - the Adder, Shifter and Logicer.
+            They do what their name suggests: the Adder computes $A \pm B$; the
+            Shifter shifts $A$ up or down by \textit{n} bits; and the Logic-er
+            performs the bitwise logic operations $A \cdot B$, $A + B$ and
+            $A \oplus B$. The 64-bit values $A$ and $B$ may be read from registers
+            or immediate values derived from an instruction. Each of the three blocks
+            are contained on separate circuit boards, but run in parallel. Their
+            outputs are calculated for all inputs with the relevant one forwarded to
             the next pipeline stage.
 
         \subsection{Adder}\label{sec:ALU:Adder}
-        
-            The adder computes $A \pm B$ and optionally checks the result against each of 
-                the "flags" for the calculation: $A < B$, $A = B$ and $A \ge B$. In 
-                \oldlogo, this procedure was to be pipelined at up to six stages, but 
-                this resulted in both huge pipelines and immense complications in feeding 
-                partial results back to previous stages, possibly from multiple 
+
+            The adder computes $A \pm B$ and optionally checks the result against each of
+                the "flags" for the calculation: $A < B$, $A = B$ and $A \ge B$. In
+                \oldlogo, this procedure was to be pipelined at up to six stages, but
+                this resulted in both huge pipelines and immense complications in feeding
+                partial results back to previous stages, possibly from multiple
                 instructions at multiple different points in their execution.
-                In \logo, however, the entire ALU instead operates in one cycle - the 
-                length of this defining the overall cycle length of the CPU. This is 
-                also one of the few stages in the pipeline which needs non-74-series 
+                In \logo, however, the entire ALU instead operates in one cycle - the
+                length of this defining the overall cycle length of the CPU. This is
+                also one of the few stages in the pipeline which needs non-74-series
                 chips.
 
-            
+
             \subsubsection{Method}\label{sec:ALU:Adder:Method}
 
                 Addition and subtraction are both done with the same circuitry, with a
-                    pre-conditioning step for the second input, \textbf{B}. Using 
-                    2's compliment to represent negative numbers, an $n$-bit number, $x$, 
+                    pre-conditioning step for the second input, \textbf{B}. Using
+                    2's compliment to represent negative numbers, an $n$-bit number, $x$,
                     can be negated by inverting its bits and adding 1:
 
                     \begin{equation}
@@ -702,8 +835,8 @@ add a0, a0, a5  ;Add lots of numbers in turn
                     \end{equation}
 
                 \Cref{eq:ALU:Adder:SubDef} is implemented by passing \textbf{B} through
-                    a bitwise XOR with the ADD/SUB setting, 
-                    $\mathbf{K} = \overline{Add}/Sub$, and setting the carry input, 
+                    a bitwise XOR with the ADD/SUB setting,
+                    $\mathbf{K} = \overline{Add}/Sub$, and setting the carry input,
                     $C_{in}$ to the same:
 
                     \begin{equation}
@@ -721,27 +854,27 @@ add a0, a0, a5  ;Add lots of numbers in turn
                     is therefore used to reduce this delay.
 
             \subsubsection{Modified Carry-Lookahead}\label{sec:ALU:Adder:ModCLA}
-                    
+
                 A traditional carry-lookahead circuit generates the carry signals from
                     chunks of the inputs, ideally much faster than the same signal would
                     be propagated up a chain of full adders. To do this, additional
                     signals are generated or tapped from the full adder circuits:
-                    
+
                     \begin{align}
-                        X_n   &= A_n \cdot B_n  \label{eq:ALU:Adder:ModCLA:X}   \\   
+                        X_n   &= A_n \cdot B_n  \label{eq:ALU:Adder:ModCLA:X}   \\
                         S_n   &= A_n \oplus B_n \label{eq:ALU:Adder:ModCLA:S}
                     \end{align}
 
                 These additional signals are then used to calculate whether the \(n\)-bit
                     chunk generates, \textbf{G}, or propagrates, \textbf{P}, a carry.
-                    An extra signal, \(\mathbf{Z}_n\) is used for checking conditions, 
+                    An extra signal, \(\mathbf{Z}_n\) is used for checking conditions,
                     see \linksection{sec:ALU:Adder:Conds}
 
-                
+
                 \begin{equation}\label{eq:ALU:Adder:ModCLA:G}
-                    \mathbf{G}  =   (X_n) + 
-                                    (X_{n-1} \cdot S_{n}) + 
-                                    \dots + 
+                    \mathbf{G}  =   (X_n) +
+                                    (X_{n-1} \cdot S_{n}) +
+                                    \dots +
                                     \left( X_0 \cdot \prod_{i=1}^{n}(S_i) \right)
                 \end{equation}
 
@@ -757,12 +890,12 @@ add a0, a0, a5  ;Add lots of numbers in turn
                 \end{equation}
 
 
-                A single 64Kx8 RAM chip is used as a lookup table for \textbf{G} and 
+                A single 64Kx8 RAM chip is used as a lookup table for \textbf{G} and
                     \textbf{P}, and an additional output signals whether
                     \(\mathbf{A+B}=0\). \textbf{P} and \textbf{G} are then forwarded
                     to another 128Kx8 RAM which stands in for the combinotorial logic
                     which generates the carry signals.
-                
+
                 For \(n=0\):
                 \begin{equation}\label{eq:ALU:Adder:ModCLA:C0}
                     C_0 = G_0 + C_{in} \cdot P_0
@@ -771,7 +904,7 @@ add a0, a0, a5  ;Add lots of numbers in turn
                 For \(1 \le n < 8\):
 
                 \begin{equation}\label{eq:ALU:Adder:ModCLA:Cn}
-                    C_n =   G_n + 
+                    C_n =   G_n +
                             \sum_{i=1}^{n}\left(G_{n-i} \cdot \prod_{j=0}^{i-1}\left(P_{n-j}\right)\right) +
                             C_{in}\cdot \prod_{N}\left(P_n\right)
                 \end{equation}
@@ -783,8 +916,8 @@ add a0, a0, a5  ;Add lots of numbers in turn
 
                 The addition itself is "executed" in eight 128Kx8 RAM chips, each
                     programmed at start-up from a single 128Kx8 EEPROM. The RAM is
-                    addressed by each byte of the two inputs, 
-                    \(\mathbf{A}_{n}\) and \(\mathbf{B}_{n}\), and \(\mathbf{C}_{n}\), 
+                    addressed by each byte of the two inputs,
+                    \(\mathbf{A}_{n}\) and \(\mathbf{B}_{n}\), and \(\mathbf{C}_{n}\),
                     which points to the result, \(\mathbf{Y}_n\).
 
                 \begin{table}[htb]
@@ -824,17 +957,23 @@ add a0, a0, a5  ;Add lots of numbers in turn
                     signed and unsigned numbers: \(\mathbf{A < B}\), \(\mathbf{A = B}\)
                     and \(\mathbf{A \ge B}\). These are only valid if the calculation
                     \(\mathbf{A-B}\) was performed.
-                    These checks can be performed immediately after the final carry 
-                    out has been calculated using the equations in 
+                    These checks can be performed immediately after the final carry
+                    out has been calculated using the equations in
                     \cref{tab:ALU:Adder:Conds:ALUConds}.
 
                 \begin{table}[htb]
                     \centering
+                    \renewcommand{\arraystretch}{1.2}
                     \caption{Formulae for ALU result conditons}
                     \label{tab:ALU:Adder:Conds:ALUConds}
-                    \begin{tabularx}{\textwidth}{X X X X}
+                    \begin{tabularx}{\textwidth}{
+                        >{\hsize=0.2\hsize\raggedright\arraybackslash}X
+                        >{\hsize=0.1\hsize\raggedright\arraybackslash}X
+                        >{\hsize=0.35\hsize\raggedright\arraybackslash}X
+                        >{\hsize=0.35\hsize\raggedright\arraybackslash}X 
+                        }
                         \addlinespace
-                        
+
                         \toprule
                         Condition   &Name   &Signed     &Unsigned   \\
                         \midrule \addlinespace
@@ -863,24 +1002,25 @@ add a0, a0, a5  ;Add lots of numbers in turn
 
         \subsection{Logicer}\label{sec:ALU:Logicer}
 
-            RISC-V specifies three bitwise logic operations: AND, OR and XOR. The most
-                intuitive way to do this (74x08 for AND, 74x32 for OR, and 74x86 for XOR),
-                takes 48 chips, plus some extra to choose which answer we want - quite a
-                high number considering what this section does. This can be improved
-                using a slightly more complex setup.
+            RISC-V specifies three bitwise logic operations: AND, OR and XOR. 
+            The obvious way to do this (74x08 for AND, 74x32 for OR, and 74x86 
+            for XOR), takes 48 chips, plus some extra to choose which answer we 
+            want - quite a high number considering what this section does. 
+            This can be improved using a slightly more complex setup.
 
             The final output, \textbf{Y}, is sent to a tri-state buffer/line driver which
-                is only enabled when the ALU performs a logic operation.
+            is only enabled when the ALU performs a logic operation.
 
             \subsubsection{Logic from MUXs}\label{sec:ALU:Logicer:MUXLogic}
 
-                It is possible to construct any 2-input, 1-output logic function from
-                    a 4:1 MUX where the four inputs reflect the truth table of the
-                    function, and the select lines are the two inputs of the function.
+                It is possible to construct any 2-input, 1-output logic function 
+                from a 4:1 MUX where the four inputs reflect the truth table of 
+                the function, and the select lines are the two inputs of the 
+                function.
 
-                Constructing the logic section this way means the control logic for this
-                    section is limited to a small ROM containing the truth tables for the
-                    MUXs.
+                Constructing the logic section this way means the control logic 
+                for this section is limited to a small ROM containing the truth 
+                tables for the MUXs.
 
                 \begin{table}[htb]
                     \centering
@@ -889,11 +1029,11 @@ add a0, a0, a5  ;Add lots of numbers in turn
                     \begin{subtable}{0.3\textwidth}
                         \centering
                         \begin{tabularx}{\textwidth}{
-                            >{\hsize=0.3\hsize\arraybackslash}X 
-                            >{\hsize=0.3\hsize\arraybackslash}X 
-                            >{\hsize=0.4\hsize\arraybackslash}X 
+                            >{\hsize=0.3\hsize\arraybackslash}X
+                            >{\hsize=0.3\hsize\arraybackslash}X
+                            >{\hsize=0.4\hsize\arraybackslash}X
                             }
-                    
+
                             \addlinespace\toprule
 
                             A   &B  &\(A \cdot B\)  \\  \midrule\addlinespace
@@ -902,7 +1042,7 @@ add a0, a0, a5  ;Add lots of numbers in turn
                             1   &0  &0  \\
                             1   &1  &1  \\
                             \bottomrule
-                    
+
                         \end{tabularx}
                         \caption{AND truth table}\label{tab:ALU:Logicer:MUXLogic:TruthTab:AND}
                     \end{subtable}
@@ -910,11 +1050,11 @@ add a0, a0, a5  ;Add lots of numbers in turn
                     \begin{subtable}{0.3\textwidth}
                         \centering
                         \begin{tabularx}{\textwidth}{
-                            >{\hsize=0.3\hsize\arraybackslash}X 
-                            >{\hsize=0.3\hsize\arraybackslash}X 
-                            >{\hsize=0.4\hsize\arraybackslash}X 
+                            >{\hsize=0.3\hsize\arraybackslash}X
+                            >{\hsize=0.3\hsize\arraybackslash}X
+                            >{\hsize=0.4\hsize\arraybackslash}X
                             }
-                    
+
                             \addlinespace\toprule
 
                             A   &B  &\(A + B\)  \\  \midrule\addlinespace
@@ -923,7 +1063,7 @@ add a0, a0, a5  ;Add lots of numbers in turn
                             1   &0  &1  \\
                             1   &1  &1  \\
                             \bottomrule
-                    
+
                         \end{tabularx}
                         \caption{OR truth table}\label{tab:ALU:Logicer:MUXLogic:TruthTab:OR}
                     \end{subtable}
@@ -931,11 +1071,11 @@ add a0, a0, a5  ;Add lots of numbers in turn
                     \begin{subtable}{0.3\textwidth}
                         \centering
                         \begin{tabularx}{\textwidth}{
-                            >{\hsize=0.3\hsize\arraybackslash}X 
-                            >{\hsize=0.3\hsize\arraybackslash}X 
-                            >{\hsize=0.4\hsize\arraybackslash}X 
+                            >{\hsize=0.3\hsize\arraybackslash}X
+                            >{\hsize=0.3\hsize\arraybackslash}X
+                            >{\hsize=0.4\hsize\arraybackslash}X
                             }
-                    
+
                             \addlinespace\toprule
 
                             A   &B  &\(A \oplus B\)  \\  \midrule\addlinespace
@@ -944,7 +1084,7 @@ add a0, a0, a5  ;Add lots of numbers in turn
                             1   &0  &1  \\
                             1   &1  &0  \\
                             \bottomrule
-                    
+
                         \end{tabularx}
                         \caption{XOR truth table}\label{tab:ALU:Logicer:MUXLogic:TruthTab:XOR}
                     \end{subtable}
@@ -959,7 +1099,7 @@ add a0, a0, a5  ;Add lots of numbers in turn
 
 
                 This method is preferable when considering the number of ICs used:
-                
+
                 \begin{table}[htb]
                     \centering
                     \caption{Comparison of the number of components used in designs with (a) separate logic paths and (b) MUX-based logic}
@@ -981,8 +1121,8 @@ add a0, a0, a5  ;Add lots of numbers in turn
                             OR          &64         &16     \\
                             XOR         &64         &16     \\
                             4:1 MUX     &64         &32     \\  \midrule
-                            Total       &256        &80     
-                            
+                            Total       &256        &80
+
                         \end{tabularx}
                         \caption{Using discreet logic gates}
 
@@ -1004,47 +1144,75 @@ add a0, a0, a5  ;Add lots of numbers in turn
                             ROM Diodes  &6          &---    \\
                             ROM Buffers &12         &2      \\
                             4:1 MUX     &64         &32     \\  \midrule
-                            Total       &75         &35     
-                            
+                            Total       &75         &35
+
                         \end{tabularx}
                         \caption{Using MUXs}
 
                     \end{subtable}
 
-                    
+
                 \end{table}
 
             \subsubsection{Setting up the MUX}\label{sec:ALU:Logicer:MUXSetup}
 
-                The correct truth table is sleected using a 2:4 selector which is wired
-                    to a small, diode ROM (\cref{fig:ALU:Logicer:MUXSetup:MUX_ROM}).
-                    A 74x1G139 2:4 takes the two-bit function select and the desired 
-                    bits are set from \(F_0, F_1, F_2, F_3\), which are then buffered
-                    before being sent out to the MUXs. The unused decoder output is left 
-                    unconnected and results in a fixed output of 0.
+                The correct truth table is sleected using a 2:4 selector which 
+                is wired to a small, diode matrix 
+                (\cref{fig:ALU:Logicer:MUXSetup:MUX_ROM}).
+                A 74x1G139 2:4 takes the two-bit function select and the 
+                desired bits are set from \(F_0, F_1, F_2, F_3\), which are 
+                then buffered before being sent out to the MUXs. 
+                The unused decoder output is left unused and unconnected to the
+                matrix, resulting in a 'function' returning [1,1,1,1].
 
                 \begin{figure}[htb]
                     \centering
-                    \begin{circuitikz}\ctikzset{bipoles/length=1cm, nodes width=0.1}
+                    \begin{circuitikz}
+
+                        %Change some settings
+                        \ctikzset{bipoles/length=1cm, nodes width=0.1}
+                        \ctikzset{european resistors}
+                        
                         %Vertical lines
-                        \draw (1, 5) to (1, 0);
-                        \draw (3, 5) to (3, 0);
-                        \draw (5, 5) to (5, 0);
+                        \draw (1, 5) 
+                            to [short, -*](1, 1.5) 
+                            to (1,0);
+                        \draw (3, 5) 
+                            to [short, -*](3, 3.5) 
+                            to [short, -*](3, 2.5)
+                            to [short, -*](3, 1.5)
+                            to (3, 0);
+                        \draw (5, 5) 
+                            to [short, -*](5, 3.5)
+                            to [short, -*](5, 2.5)
+                            to (5, 0);
+                        
                         %Vertical Labels
                         \node[anchor=south](AND_Lab) at (1, 5) {\Large AND};
                         \node[anchor=south](OR_Lab) at (3, 5) {\Large OR};
                         \node[anchor=south](XOR_Lab) at (5, 5) {\Large XOR};
-                        
-                        %Horizontal lines
+
+                        %Main buses
                         \draw (0, 4) to (7, 4);
                         \draw (0, 3) to (7, 3);
                         \draw (0, 2) to (7, 2);
                         \draw (0, 1) to (7, 1);
+
+                        %Resistors
+                        \draw (0,4) to [R, -*] (-2,4);
+                        \draw (0,3) to [R, -*] (-2,3);
+                        \draw (0,2) to [R, -*] (-2,2);
+                        \draw (0,1) to [R] (-2,1);
+
+                        %Pull Up line
+                        \draw (-2,1) to (-2,4.5);
+                        \draw (-2,4.5) node[vcc]{VCC};
+
                         %Horizontal Labels
-                        \node[anchor=east](F0_Lab) at (0, 4) {\Large\(F_0\)};
-                        \node[anchor=east](F0_Lab) at (0, 3) {\Large\(F_1\)};
-                        \node[anchor=east](F0_Lab) at (0, 2) {\Large\(F_2\)};
-                        \node[anchor=east](F0_Lab) at (0, 1) {\Large\(F_3\)};
+                        \node[anchor=west](F0_Lab) at (8.5, 4) {\Large\(F_0\)};
+                        \node[anchor=west](F0_Lab) at (8.5, 3) {\Large\(F_1\)};
+                        \node[anchor=west](F0_Lab) at (8.5, 2) {\Large\(F_2\)};
+                        \node[anchor=west](F0_Lab) at (8.5, 1) {\Large\(F_3\)};
 
                         %Draw Buffers
                         \draw (7, 1) node[ieeestd buffer port, anchor=in 1]{};
@@ -1054,30 +1222,36 @@ add a0, a0, a5  ;Add lots of numbers in turn
 
                         %Draw Diodes
                         %AND
-                        \draw (1, 1.5) to [full Schottky diode] (2, 1);
+                        \draw (1, 1.5) to [full Schottky diode, -*] (2, 1);
 
                         %OR
-                        \draw (3, 3.5) to [full Schottky diode] (4, 3);
-                        \draw (3, 2.5) to [full Schottky diode] (4, 2);
-                        \draw (3, 1.5) to [full Schottky diode] (4, 1);
+                        \draw (3, 3.5) to [full Schottky diode, -*] (4, 3);
+                        \draw (3, 2.5) to [full Schottky diode, -*] (4, 2);
+                        \draw (3, 1.5) to [full Schottky diode, -*] (4, 1);
 
                         %XOR
-                        \draw (5, 3.5) to [full Schottky diode] (6, 3);
-                        \draw (5, 2.5) to [full Schottky diode] (6, 2);
+                        \draw (5, 3.5) to [full Schottky diode, -*] (6, 3);
+                        \draw (5, 2.5) to [full Schottky diode, -*] (6, 2);
 
                     \end{circuitikz}
-                    \caption{Diode ROM storing the truth table function, \(F_0, F_1, F_2, F_3\).
-                                Pull down resistors on all \(F_n\) lines omitted for clarity.}
+                    \caption{
+                        Diode ROM storing the truth table function, 
+                        \(F_0, F_1, F_2, F_3\);
+                        these are pulled \emph{up} as the outputs of a 74x139 are
+                        active low.
+                    }
                     \label{fig:ALU:Logicer:MUXSetup:MUX_ROM}
                 \end{figure}
 
-                As there are 64 total MUXs needed for the logic functions, the 
-                    \emph{Function} lines are buffered four times in parallel, so each 
-                    buffer only needs to drive 16 inputs. The buffers are needed at all 
-                    both because of the high fanout requirement and because of the forward 
-                    bias of the Schottkey diodes. With a forward drop of approx. 0.3 V; 
-                    this drops the nominal signal level to 3.0 V, only 0.6 V above the
-                    minimum \(V_{ih}\) of low-voltage CMOS logic chips.
+                As there are 64 total MUXs needed for the logic functions, the
+                \emph{Function} lines are buffered four times in parallel, so 
+                each buffer only needs to drive 16 inputs. 
+                The buffers are needed at all both because of the high fanout 
+                requirement and because of the forward bias of the Schottkey 
+                diodes. 
+                With a forward voltage of approx. 0.3 V; this drops the nominal 
+                signal level to 3.0 V, only 0.6 V above the
+                minimum \(V_{ih}\) of low-voltage CMOS logic chips.
 
         \subsection{Shifter}\label{sec:ALU:Shifter}
 
@@ -1100,14 +1274,14 @@ add a0, a0, a5  ;Add lots of numbers in turn
                 up to 32. Each stage consists of two tri-state buffers, one buffering
                 the previous stage as is, the other buffering the previous output shifted
                 by the next number of bits. The \(n^{th}\) stage is then controlled by
-                the \(n^{th}\) bit of the shift amount input. 
-                
-            Traditionally, a sequential barrel shifter like this would use multiplexers, 
-                but this requires far too many (384 MUXs across 96 ICs) to be practical. 
+                the \(n^{th}\) bit of the shift amount input.
+
+            Traditionally, a sequential barrel shifter like this would use multiplexers,
+                but this requires far too many (384 MUXs across 96 ICs) to be practical.
                 The modified version using buffers comes from R. Baruch's RISC-V build
                 \cite{RobB_Shifter}, expanded to 64-bits.
-                
-            Using 16-bit buffers in the 74LVC162244, the number of ICs can be reduced to 
+
+            Using 16-bit buffers in the 74LVC162244, the number of ICs can be reduced to
                 8 per stage, for a total of 48 - half that of the MUX version.
 
             \subsubsection{Bit Order Reverser}\label{sec:ALU:Shifter:BitRev}
@@ -1116,7 +1290,7 @@ add a0, a0, a5  ;Add lots of numbers in turn
                     be bit-reversed first. This is accomplished using two tri-state
                     buffers, one buffering the number as is, the other buffering the
                     reversed number.
-                
+
                 The reversal is accomplished by "simple" shuffling of the order of traces
                     on the PCB in the folowing way:
 
@@ -1125,9 +1299,9 @@ add a0, a0, a5  ;Add lots of numbers in turn
             \subsubsection{Shift Stages}\label{sec:ALU:Shifter:ShiftStages}
 
 
-            
 
-            
+
+
 
     \printbibliography[heading=bibintoc, title={References}]
 \end{document}
