@@ -224,7 +224,14 @@ morestring=[b]'       % also mark ' as string start/end
                 It is, however, trivial to come up with example programs which
                 result in more nops than executed instructions:
 
-                \begin{lstlisting}[language={[RISC-V]Assembler}, frame=single,]
+                \begin{lstlisting}[
+                    label={lst:Intro:HazAvoid:Stalls:BadCode},
+                    caption={Some example code which denerates lots of stalls.},
+                    captionpos=b,
+                    language={[RISC-V]Assembler}, 
+                    frame=single,
+                    float,
+                ][htb!]
 ;Some silly code  :3c
 add a0, a1, a2  ;Use a0 as tally
 add a0, a0, a3
@@ -235,8 +242,9 @@ add a0, a0, a5  ;Add lots of numbers in turn
 
                 When executing the above program, the CPU is forced to insert 
                 NOPs between every instruction to allow the addition result to 
-                be fully written back to \lstinline[language={[RISC-V]Assembler}]|a0| 
-                before the next instruction is executed. 
+                be fully written back to 
+                \lstinline[language={[RISC-V]Assembler}]|a0| before the next 
+                instruction is executed. 
                 A classic RISC-V architecture with this simple hazard avoidance 
                 would \emph{actually} execute the code in Listing 
                 \ref{lst:Intro:HazAvoid:Stalls:ManyNOPs}.
@@ -247,7 +255,8 @@ add a0, a0, a5  ;Add lots of numbers in turn
                         captionpos=b,
                         language={[RISC-V]Assembler},
                         frame=single,
-                        float]
+                        float
+                    ][htb!]
 ;Oops, all stalls  TwT
 add a0, a1, a2  ;Use a0 as tally
 nop             ;Execute in ALU
@@ -793,83 +802,120 @@ add a0, a0, a5  ;Add lots of numbers in turn
 
     \section{ALU}\label{sec:ALU}
 
-        The \longlogo ALU is comprised of three blocks - the Adder, Shifter and Logicer.
-            They do what their name suggests: the Adder computes $A \pm B$; the
-            Shifter shifts $A$ up or down by \textit{n} bits; and the Logic-er
-            performs the bitwise logic operations $A \cdot B$, $A + B$ and
-            $A \oplus B$. The 64-bit values $A$ and $B$ may be read from registers
-            or immediate values derived from an instruction. Each of the three blocks
-            are contained on separate circuit boards, but run in parallel. Their
-            outputs are calculated for all inputs with the relevant one forwarded to
-            the next pipeline stage.
+        The \longlogo ALU is comprised of three blocks - the Adder, Shifter and 
+        Logicer.
+        The Adder computes \(A \pm B\); the Shifter shifts \(A\) up or down 
+        by \(n\) bits; and the Logic-er performs the bitwise logic operations 
+        \(A \cdot B\), \(A + B\) and \(A \oplus B\). 
+        The 64-bit values \(A\) and \(B\) may be read from registers or
+        immediate values derived from an instruction. 
+        Each of the three blocks are contained on separate circuit boards, and 
+        run in parallel. 
+        Their outputs are calculated for all inputs with the relevant one 
+        forwarded to the next pipeline stage.
 
         \subsection{Adder}\label{sec:ALU:Adder}
 
-            The adder computes $A \pm B$ and optionally checks the result against each of
-                the "flags" for the calculation: $A < B$, $A = B$ and $A \ge B$. In
-                \oldlogo, this procedure was to be pipelined at up to six stages, but
-                this resulted in both huge pipelines and immense complications in feeding
-                partial results back to previous stages, possibly from multiple
-                instructions at multiple different points in their execution.
-                In \logo, however, the entire ALU instead operates in one cycle - the
-                length of this defining the overall cycle length of the CPU. This is
-                also one of the few stages in the pipeline which needs non-74-series
-                chips.
+            \begin{figure}[htb!]
+                \centering
+                \includegraphics[width=\textwidth]{Figures/AdderV2.png}
+                \caption{
+                    Layout of the adder circuit.
+                    Logic shared between similar signals combined for space.
+                }
+                \label{fig:ALU:Adder:Layout}
+            \end{figure}
 
+            The adder computes \(A \pm B\) and optionally checks the result 
+            against each of the "flags" for the calculation: \(A < B, A = B\) 
+            and \(A \ge B\). 
+            In \oldlogo, this procedure was to be pipelined at up to six 
+            stages, but resulted in both huge pipelines and complications in 
+            feeding partial results back to previous stages, possibly from 
+            multiple instructions at multiple different points in their 
+            execution.
+            In \logo, however, the entire ALU instead operates in one cycle - 
+            the length of this defining the overall cycle length of the CPU.
+
+            As you can see from \cref{fig:ALU:Adder:Layout}, the adder remains
+            one of the most complex parts of the CPU, despite being only a 
+            third of the ALU.
+            Using RAM with \textasciitilde8 ns access time, this section has a critical path
+            of \textasciitilde50 ns through the zero check logic.
+            This is markedly better than a more brute-force approach, though
+            still limits the maximum clock frequency of \textasciitilde 20 MHz.
 
             \subsubsection{Method}\label{sec:ALU:Adder:Method}
 
-                Addition and subtraction are both done with the same circuitry, with a
-                    pre-conditioning step for the second input, \textbf{B}. Using
-                    2's compliment to represent negative numbers, an $n$-bit number, $x$,
-                    can be negated by inverting its bits and adding 1:
+                Addition and subtraction are both done with the same circuitry, 
+                with a pre-conditioning step for the second input, \(B\). 
+                Using 2's compliment to represent negative numbers, an 
+                \(n\)-bit number, \(x\), can be negated by inverting its 
+                bits and adding 1:
 
-                    \begin{equation}
-                        -x := (x \oplus [2^{n}-1]) + 1
-                    \end{equation}
+                \begin{equation}
+                    -x := (x \oplus [2^{n}-1]) + 1
+                \end{equation}
 
                 Subtracting \textbf{B} from \textbf{A} is therefore defined:
 
-                    \begin{equation}\label{eq:ALU:Adder:SubDef}
-                        \mathbf{A - B \ \equiv\ A + (-B) \ \equiv\ A + (B} \oplus [2^{n}-1]) + 1
-                    \end{equation}
+                \begin{equation}\label{eq:ALU:Adder:SubDef}
+                    A - B \ \equiv\ 
+                    A + (-B) \ 
+                    \equiv\ A + (B \oplus [2^{n}-1]) + 1
+                \end{equation}
 
-                \Cref{eq:ALU:Adder:SubDef} is implemented by passing \textbf{B} through
-                    a bitwise XOR with the ADD/SUB setting,
-                    $\mathbf{K} = \overline{Add}/Sub$, and setting the carry input,
-                    $C_{in}$ to the same:
+                \Cref{eq:ALU:Adder:SubDef} is implemented by bitwise XORing 
+                \(B\) with the ADD/SUB setting, \(K\)
+                , and setting the carry input,
+                $C_{in}$ to the same:
 
-                    \begin{equation}
-                        \mathbf{A - B \ \equiv\ A + (B \oplus [K]) + K}
-                    \end{equation}
+                \begin{equation}
+                    K =
+                    \begin{cases}
+                        0   & \text{if Adding}      \\
+                        1   & \text{if Subtracting} 
+                    \end{cases}
+                \end{equation}
 
-                The XORed \textbf{B} will be called $\mathbf{B'}$ from here.
+                \begin{equation}
+                    A - B \ \equiv\ A + (B \oplus K) + K   
+                \end{equation}
 
-                The addition, $\mathbf{A} + \mathbf{B'} + \mathbf{K}$ is a 64-bit
-                    operation which would be much too slow if performed as a series of
-                    daisy-chained segments due to the access time of the RAM ICs. Even
-                    in the best case - where the access time were $\le 8$ ns - a chain of
-                    eight in a row would be a total delay of $\le 64$ ns, greatly
-                    bottlenecking the speed of the processor. A form of carry-lookahead
-                    is therefore used to reduce this delay.
+                The XORed \(B\) will be called \(B'\) from here.
+
+                The addition, \(A + B' + K\) is a 64-bit operation which would 
+                be much too slow if performed as a series of daisy-chained 
+                segments due to the access time of the RAM ICs. 
+                Even in the best case - where the access time were \(\le 8\) ns 
+                - a chain of eight in a row would be a total delay of \(\le 64\)
+                ns, greatly bottlenecking the speed of the processor. 
+                A form of carry-lookahead is therefore used to reduce this 
+                delay.
 
             \subsubsection{Modified Carry-Lookahead}\label{sec:ALU:Adder:ModCLA}
 
-                A traditional carry-lookahead circuit generates the carry signals from
-                    chunks of the inputs, ideally much faster than the same signal would
-                    be propagated up a chain of full adders. To do this, additional
-                    signals are generated or tapped from the full adder circuits:
+                \begin{figure}[htb!]
+                    \centering
+                    \includegraphics[width=\textwidth]{Figures/AdderLogic.png}
+                    \caption{
+                        Simplified overview of the adder logic.
+                    }
+                    \label{fig:ALU:Adder:Method:LogicBlocks}
+                \end{figure}
 
-                    \begin{align}
-                        X_n   &= A_n \cdot B_n  \label{eq:ALU:Adder:ModCLA:X}   \\
-                        S_n   &= A_n \oplus B_n \label{eq:ALU:Adder:ModCLA:S}
-                    \end{align}
+                A traditional carry-lookahead circuit generates the carry signals from
+                chunks of the inputs, ideally much faster than the same signal would
+                be propagated up a chain of full adders. To do this, additional
+                signals are generated or tapped from the full adder circuits:
+
+                \begin{align}
+                    X_n   &= A_n \cdot B_n  \label{eq:ALU:Adder:ModCLA:X}   \\
+                    S_n   &= A_n \oplus B_n \label{eq:ALU:Adder:ModCLA:S}
+                \end{align}
 
                 These additional signals are then used to calculate whether the \(n\)-bit
-                    chunk generates, \textbf{G}, or propagrates, \textbf{P}, a carry.
-                    An extra signal, \(\mathbf{Z}_n\) is used for checking conditions,
-                    see \linksection{sec:ALU:Adder:Conds}
-
+                chunk generates, \emph{G}, or propagates, \emph{P}, a carry.
 
                 \begin{equation}\label{eq:ALU:Adder:ModCLA:G}
                     \mathbf{G}  =   (X_n) +
@@ -882,19 +928,10 @@ add a0, a0, a5  ;Add lots of numbers in turn
                     \mathbf{P}  =   \prod_{i=0}^{n}(S_i)
                 \end{equation}
 
-                \begin{equation}\label{eq:ALU:Adder:ModCLA:Z}
-                    \mathbf{Z}  = \begin{cases}
-                        0 & \text{, } A + B \not\equiv 0 \pmod{255} \\
-                        1 & \text{, } A + B \equiv 0 \pmod{255}
-                    \end{cases}
-                \end{equation}
-
-
-                A single 64Kx8 RAM chip is used as a lookup table for \textbf{G} and
-                    \textbf{P}, and an additional output signals whether
-                    \(\mathbf{A+B}=0\). \textbf{P} and \textbf{G} are then forwarded
-                    to another 128Kx8 RAM which stands in for the combinotorial logic
-                    which generates the carry signals.
+                A single 64Kx8 RAM chip is used as a lookup table for 
+                \textbf{G} and \textbf{P}, both of which are forwarded to 
+                another 128Kx8 RAM that generates the carry signals 
+                \(\mathbf{C_{0..7}}\).
 
                 For \(n=0\):
                 \begin{equation}\label{eq:ALU:Adder:ModCLA:C0}
@@ -909,16 +946,80 @@ add a0, a0, a5  ;Add lots of numbers in turn
                             C_{in}\cdot \prod_{N}\left(P_n\right)
                 \end{equation}
 
-                Using this method, all eight carrys can be generated after only two RAM
-                    accesses.
+                See \linksection{app:LogDefs:AddConds} for expanded definitions.
 
+                Using this method, all eight carrys can be generated after only 
+                two RAM accesses. 
+                \(C_{in}\) and \(C_{0..6}\) are used in the calculation while
+                \(C_{7}\) is used only for condition checking.
+
+                \begin{table}[htb!]
+                    \centering
+                    \caption{Contents of the Condition RAM}
+                    \begin{tabularx}{\textwidth}{
+                            >{\hsize=0.2\hsize\arraybackslash}X
+                            >{\hsize=0.2\hsize\arraybackslash}X
+                            >{\hsize=0.2\hsize\arraybackslash}X
+                            >{\hsize=0.2\hsize\arraybackslash}X
+                            >{\hsize=0.2\hsize\arraybackslash}X
+                        }
+                        \addlinespace\toprule
+                        \(\mathbf{A}_n\)    &\(\mathbf{B}_n\)   &Address    &\(\mathbf{G}_n\)   &\(\mathbf{P}_n\)\\
+                        \midrule\addlinespace
+
+                        0x00    &0x00   &0x0000 &0  &0  \\
+                        0x00    &0x01   &0x0001 &0  &0  \\
+                        \dots   &       &       &   &   \\
+                        0x00    &0xFF   &0x00FF &0  &1  \\
+                        0x01    &0x00   &0x0100 &0  &0  \\
+                        \dots   &       &       &   &   \\
+                        0x01    &0xFE   &0x01FE &0  &1  \\
+                        0x01    &0xFF   &0x01FF &1  &0  \\
+                        \dots   &       &       &   &   \\
+                        0xFF    &0xFF   &0xFFFF &1  &0  \\
+                        \bottomrule
+
+                    \end{tabularx}
+                \end{table}
+
+                \begin{table}[htb!]
+                    \centering
+                    \caption{Contents of the Carry RAM}
+                    \begin{tabularx}{\textwidth}{
+                            >{\hsize=0.2\hsize\arraybackslash}X
+                            >{\hsize=0.2\hsize\arraybackslash}X
+                            >{\hsize=0.2\hsize\arraybackslash}X
+                            >{\hsize=0.2\hsize\arraybackslash}X
+                            >{\hsize=0.2\hsize\arraybackslash}X
+                        }
+                        \addlinespace\toprule
+                        \(\mathbf{G}_n\)    &\(\mathbf{P}_n\)   &\(\mathbf{C}_{in}\)   &Address    &\(\mathbf{C}\)    \\
+                        \midrule\addlinespace
+
+                        00000000    &00000000   &0  &0x00000    &00000000   \\
+                        00000000    &00000001   &0  &0x00001    &00000000   \\
+                        \dots       &           &   &           &           \\
+                        00000000    &11111111   &0  &0x000FF    &00000000   \\
+                        00000001    &00000000   &0  &0x00100    &00000001   \\
+                        00000001    &00000001   &0  &0x00101    &00000001   \\
+                        00000001    &00000010   &0  &0x00102    &00000011   \\
+                        \dots       &           &   &           &           \\
+                        11111111    &11111111   &0  &0x0FFFF    &11111111   \\
+                        00000000    &00000000   &1  &0x10000    &00000000   \\
+                        00000000    &00000001   &1  &0x10001    &00000001   \\
+                        \dots       &           &   &           &           \\ 
+                        11111111    &11111111   &1  &0x1FFFF    &11111111   \\
+
+                        \bottomrule
+                    \end{tabularx}
+                \end{table}
             \subsubsection{Doing the Adding}\label{sec:ALU:Adder:Adding}
 
                 The addition itself is "executed" in eight 128Kx8 RAM chips, each
-                    programmed at start-up from a single 128Kx8 EEPROM. The RAM is
-                    addressed by each byte of the two inputs,
-                    \(\mathbf{A}_{n}\) and \(\mathbf{B}_{n}\), and \(\mathbf{C}_{n}\),
-                    which points to the result, \(\mathbf{Y}_n\).
+                programmed at start-up from a single 128Kx8 EEPROM. The RAM is
+                addressed by each byte of the two inputs,
+                \(\mathbf{A}_{n}\) and \(\mathbf{B}_{n}\), and \(\mathbf{C}_{n}\),
+                which points to the result, \(\mathbf{Y}_n\).
 
                 \begin{table}[htb]
                     \centering
@@ -946,20 +1047,20 @@ add a0, a0, a5  ;Add lots of numbers in turn
                 \end{table}
 
                 The final result is then either forwarded to the Adder's output, or
-                    changed to 0/1 for the outcome of the SLT/SLTU instructions.
+                changed to 0/1 for the outcome of the SLT/SLTU instructions.
 
                 In the case of ADDW/SUBW instructions which sign-extend a 32-bit answer
-                    to 64, the upper word is ignored and switched to \textbf{Y}[31].
+                to 64, the upper word is ignored and switched to \textbf{Y}[31].
 
             \subsubsection{Condition Checking}\label{sec:ALU:Adder:Conds}
 
                 The RISC-V ALU needs to be able to check for three conditions for both
-                    signed and unsigned numbers: \(\mathbf{A < B}\), \(\mathbf{A = B}\)
-                    and \(\mathbf{A \ge B}\). These are only valid if the calculation
-                    \(\mathbf{A-B}\) was performed.
-                    These checks can be performed immediately after the final carry
-                    out has been calculated using the equations in
-                    \cref{tab:ALU:Adder:Conds:ALUConds}.
+                signed and unsigned numbers: \(\mathbf{A < B}\), \(\mathbf{A = B}\)
+                and \(\mathbf{A \ge B}\). These are only valid if the calculation
+                \(\mathbf{A-B}\) was performed.
+                These checks can be performed immediately after the final carry
+                out has been calculated using the equations in
+                \cref{tab:ALU:Adder:Conds:ALUConds}.
 
                 \begin{table}[htb]
                     \centering
@@ -985,22 +1086,29 @@ add a0, a0, a5  ;Add lots of numbers in turn
                     \end{tabularx}
                 \end{table}
 
-                The greater/less than checks are calculated as written, but the equality
-                    check is actually calculated using the formula:
+                The greater/less than checks are calculated as written, but 
+                the equality check is actually calculated using the formula:
 
                 \begin{equation}
-                    EQ = \prod_{N}\left((P_{n} \cdot C_{in}) + (Z_{n} \cdot \overline{C_{in}})\right)
+                    \overline{EQ} = \sum_{i=0}^{63}\left( A_{i} \oplus B_{i} \right)
                 \end{equation}
 
-                In plain english: \(A\) and \(B\) are equal if the result of \(A - B\) is
-                    zero. This occures when each 8-bit chunk, \(Y_n\), is equal to 0 with
-                    no carry in, or is equal to 255 with a carry in.
+                In plain english: \(A\) and \(B\) are equal if 
+                \(A \oplus B = 0\), which is checked in the Logicer by ORing
+                together all the bits of that result.
 
-                The results of the condition check are forwarded to the program counter
-                    to deal with branches.
+                The results of the condition check are also forwarded to the 
+                program counter to deal with branches.
 
 
         \subsection{Logicer}\label{sec:ALU:Logicer}
+
+            \begin{figure}[htb!]
+                \centering
+                \includegraphics[width=\textwidth]{Figures/Logicer.png}
+                \caption{Diagram of the Logicer.}
+                \label{fig:ALU:Logicer:Diag}
+            \end{figure}
 
             RISC-V specifies three bitwise logic operations: AND, OR and XOR. 
             The obvious way to do this (74x08 for AND, 74x32 for OR, and 74x86 
@@ -1156,7 +1264,7 @@ add a0, a0, a5  ;Add lots of numbers in turn
 
             \subsubsection{Setting up the MUX}\label{sec:ALU:Logicer:MUXSetup}
 
-                The correct truth table is sleected using a 2:4 selector which 
+                The correct truth table is selected using a 2:4 selector which 
                 is wired to a small, diode matrix 
                 (\cref{fig:ALU:Logicer:MUXSetup:MUX_ROM}).
                 A 74x1G139 2:4 takes the two-bit function select and the 
@@ -1174,29 +1282,30 @@ add a0, a0, a5  ;Add lots of numbers in turn
                         \ctikzset{european resistors}
                         
                         %Vertical lines
-                        \draw (1, 5) 
-                            to [short, -*](1, 1.5) 
-                            to (1,0);
-                        \draw (3, 5) 
-                            to [short, -*](3, 3.5) 
-                            to [short, -*](3, 2.5)
-                            to [short, -*](3, 1.5)
-                            to (3, 0);
-                        \draw (5, 5) 
-                            to [short, -*](5, 3.5)
-                            to [short, -*](5, 2.5)
-                            to (5, 0);
+                        \draw (1, 5) to (1, 0);
+                        \draw (3, 5) to (3, 0);
+                        \draw (5, 5) to (5, 0); 
                         
                         %Vertical Labels
-                        \node[anchor=south](AND_Lab) at (1, 5) {\Large AND};
-                        \node[anchor=south](OR_Lab) at (3, 5) {\Large OR};
-                        \node[anchor=south](XOR_Lab) at (5, 5) {\Large XOR};
+                        \node[anchor=south](AND_Lab) at (1, 5) {\Large{\(\overline{\text{AND}}\)}};
+                        \node[anchor=south](OR_Lab) at (3, 5) {\Large{\(\overline{\text{OR}}\)}};
+                        \node[anchor=south](XOR_Lab) at (5, 5) {\Large{\(\overline{\text{XOR}}\)}};
 
                         %Main buses
-                        \draw (0, 4) to (7, 4);
-                        \draw (0, 3) to (7, 3);
-                        \draw (0, 2) to (7, 2);
-                        \draw (0, 1) to (7, 1);
+                        \draw (0, 4)
+                            to [short, -*](2, 4)
+                            to [short, -*](4, 4)
+                            to [short, -*](6, 4)
+                            to (7, 4);
+                        \draw (0, 3)  
+                            to [short, -*](2, 3)
+                            to (7, 3);
+                        \draw (0, 2) 
+                            to [short, -*](2, 2)
+                            to (7, 2);
+                        \draw (0, 1) 
+                            to [short, -*](6, 1)
+                            to (7, 1);
 
                         %Resistors
                         \draw (0,4) to [R, -*] (-2,4);
@@ -1222,16 +1331,16 @@ add a0, a0, a5  ;Add lots of numbers in turn
 
                         %Draw Diodes
                         %AND
-                        \draw (1, 1.5) to [full Schottky diode, -*] (2, 1);
+                        \draw (2, 4) to [full Schottky diode, -*] (1, 4.75);
+                        \draw (2, 3) to [full Schottky diode, -*] (1, 3.75);
+                        \draw (2, 2) to [full Schottky diode, -*] (1, 2.75);
 
                         %OR
-                        \draw (3, 3.5) to [full Schottky diode, -*] (4, 3);
-                        \draw (3, 2.5) to [full Schottky diode, -*] (4, 2);
-                        \draw (3, 1.5) to [full Schottky diode, -*] (4, 1);
+                        \draw (4, 4) to [full Schottky diode, -*] (3, 4.75);
 
                         %XOR
-                        \draw (5, 3.5) to [full Schottky diode, -*] (6, 3);
-                        \draw (5, 2.5) to [full Schottky diode, -*] (6, 2);
+                        \draw (6, 4) to [full Schottky diode, -*] (5, 4.75);
+                        \draw (6, 1) to [full Schottky diode, -*] (5, 1.75);
 
                     \end{circuitikz}
                     \caption{
@@ -1243,65 +1352,120 @@ add a0, a0, a5  ;Add lots of numbers in turn
                     \label{fig:ALU:Logicer:MUXSetup:MUX_ROM}
                 \end{figure}
 
+                The buffers in \cref{fig:ALU:Logicer:MUXSetup:MUX_ROM} serve
+                two purposes:
+                firstly they help with fanout - there are 64 inputs per 
+                \emph{Function} line and, for a \(4.7 k\Omega \) resistor,
+                each can get \textasciitilde \(0.7 mA\) (this isn't too low for 
+                LVC logic, but I would like more headroom);
+                and secondly, they smooth over any issues the diodes may cause.
+
                 As there are 64 total MUXs needed for the logic functions, the
-                \emph{Function} lines are buffered four times in parallel, so 
+                \emph{Function} lines are buffered four times in parallel so 
                 each buffer only needs to drive 16 inputs. 
-                The buffers are needed at all both because of the high fanout 
-                requirement and because of the forward bias of the Schottkey 
-                diodes. 
-                With a forward voltage of approx. 0.3 V; this drops the nominal 
+                The buffers themselves serve two purposes: first to provide 
+                enough current to drive all 64 MUXs and second to amplify the
+                \(F_{i}\) signals to counter the voltage drop from the diodes.
+                With a forward voltage of \textasciitilde0.3 V; this drops the nominal 
                 signal level to 3.0 V, only 0.6 V above the
                 minimum \(V_{ih}\) of low-voltage CMOS logic chips.
 
         \subsection{Shifter}\label{sec:ALU:Shifter}
 
             The RISC-V ISA defines several shift operations, each of which can, in one
-                operation, shift the input by an arbitrary number of bits up to X\_LEN-1.
-                In RV64i, additional instructions shift 32-bit values and sign extend
-                up to 64-bits. Both left and right shifts are defined, with left shifts
-                being implemented by reversing the input, shifting, then reversing the
-                result again:
+            operation, shift the input by an arbitrary number of bits up to X\_LEN-1.
+            In RV64i, additional instructions shift 32-bit values and sign extend
+            up to 64-bits. Both left and right shifts are defined, with left shifts
+            being implemented by reversing the input, shifting, then reversing the
+            result again:
 
                 \begin{equation}\label{eq:ALU:Shifter:RevShift}
                     A >> B := \text{REV}(\ \text{REV}(A) << B \ )
                 \end{equation}
 
             This implementation favours left shifts, so any rightward shift will use
-                the method in \cref{eq:ALU:Shifter:RevShift}.
+            the method in \cref{eq:ALU:Shifter:RevShift}.
 
             Shifts are implemented using a sequential barrel shifter - a series
-                of stages which shift the input a power of two number of places
-                up to 32. Each stage consists of two tri-state buffers, one buffering
-                the previous stage as is, the other buffering the previous output shifted
-                by the next number of bits. The \(n^{th}\) stage is then controlled by
-                the \(n^{th}\) bit of the shift amount input.
+            of stages which shift the input a power of two number of places
+            up to 32. Each stage consists of two tri-state buffers, one buffering
+            the previous stage as is, the other buffering the previous output shifted
+            by the next number of bits. The \(n^{th}\) stage is then controlled by
+            the \(n^{th}\) bit of the shift amount input.
 
             Traditionally, a sequential barrel shifter like this would use multiplexers,
-                but this requires far too many (384 MUXs across 96 ICs) to be practical.
-                The modified version using buffers comes from R. Baruch's RISC-V build
-                \cite{RobB_Shifter}, expanded to 64-bits.
+            but this requires far too many (384 MUXs across 96 ICs) to be practical.
+            The modified version using buffers comes from R. Baruch's RISC-V build
+            \cite{RobB_Shifter}, expanded to 64-bits.
 
             Using 16-bit buffers in the 74LVC162244, the number of ICs can be reduced to
-                8 per stage, for a total of 48 - half that of the MUX version.
+            8 per stage, for a total of 48 - half that of the MUX version.
 
             \subsubsection{Bit Order Reverser}\label{sec:ALU:Shifter:BitRev}
 
                 In order to shift the incoming number, \textbf{A}, rightwards, it must
-                    be bit-reversed first. This is accomplished using two tri-state
-                    buffers, one buffering the number as is, the other buffering the
-                    reversed number.
+                be bit-reversed first. This is accomplished using two tri-state
+                buffers, one buffering the number as is, the other buffering the
+                reversed number.
 
                 The reversal is accomplished by "simple" shuffling of the order of traces
-                    on the PCB in the folowing way:
+                on the PCB in the following way:
 
                 [DIAGRAM OF PCB TRACE REVERSAL]
 
             \subsubsection{Shift Stages}\label{sec:ALU:Shifter:ShiftStages}
 
-
-
-
-
-
+    \pagebreak
     \printbibliography[heading=bibintoc, title={References}]
+
+    \pagebreak
+    \appendix
+    \section{Various Logic Expansions and Definitions}
+    \label{app:LogDefs}
+
+        \subsection{Adder Conditions}
+        \label{app:LogDefs:AddConds}
+      
+            Does the \(n^{th}\) stage propagate a carry?
+            \scriptsize{
+            \begin{align}
+                P_0 &= S_{0,0}\cdot S_{0,1}\cdot S_{0,2}\cdot S_{0,3}\cdot S_{0,4}\cdot S_{0,5}\cdot S_{0,6}\cdot S_{0,7}\\
+                P_1 &= S_{1,0}\cdot S_{1,1}\cdot S_{1,2}\cdot S_{1,3}\cdot S_{1,4}\cdot S_{1,5}\cdot S_{1,6}\cdot S_{1,7}\\
+                P_2 &= S_{2,0}\cdot S_{2,1}\cdot S_{2,2}\cdot S_{2,3}\cdot S_{2,4}\cdot S_{2,5}\cdot S_{2,6}\cdot S_{2,7}\\
+                P_3 &= S_{3,0}\cdot S_{3,1}\cdot S_{3,2}\cdot S_{3,3}\cdot S_{3,4}\cdot S_{3,5}\cdot S_{3,6}\cdot S_{3,7}\\
+                P_4 &= S_{4,0}\cdot S_{4,1}\cdot S_{4,2}\cdot S_{4,3}\cdot S_{4,4}\cdot S_{4,5}\cdot S_{4,6}\cdot S_{4,7}\\
+                P_5 &= S_{5,0}\cdot S_{5,1}\cdot S_{5,2}\cdot S_{5,3}\cdot S_{5,4}\cdot S_{5,5}\cdot S_{5,6}\cdot S_{5,7}\\
+                P_6 &= S_{6,0}\cdot S_{6,1}\cdot S_{6,2}\cdot S_{6,3}\cdot S_{6,4}\cdot S_{6,5}\cdot S_{6,6}\cdot S_{6,7}\\
+                P_7 &= S_{7,0}\cdot S_{7,1}\cdot S_{7,2}\cdot S_{7,3}\cdot S_{7,4}\cdot S_{7,5}\cdot S_{7,6}\cdot S_{7,7}
+            \end{align}
+            }\normalsize
+            Does the \(n^{th}\) stage generate a carry?
+            \scriptsize{
+            \begin{align}
+                G_0 &= X_0+P_0C_{in}\\
+                G_1 &= X_1+P_1C_0+P_1P_0C_{in}\\
+                G_2 &= X_2+P_2C_1+P_2P_1C_0+P_2P_1P_0C_{in}\\
+                G_3 &= X_3+P_3C_2+P_3P_2C_1+P_3P_2P_1C_0+P_3P_2P_1P_0C_{in}\\
+                G_4 &= X_4+P_4(C_3+P_3(C_2+P_2(C_1+P_1(C_0+P_0C_{in}))))\\
+                G_5 &= X_5+P_5(C_4+P_4(C_3+P_3(C_2+P_2(C_1+P_1(C_0+P_0C_{in})))))\\
+                G_6 &= X_6+P_6(C_5+P_5(C_4+P_4(C_3+P_3(C_2+P_2(C_1+P_1(C_0+P_0C_{in}))))))\\
+                G_7 &= X_7+P_7(C_6+P_6(C_5+P_5(C_4+P_4(C_3+P_3(C_2+P_2(C_1+P_1(C_0+P_0C_{in}))))))) 
+            \end{align}
+            }\normalsize
+            What is the \(n^{th}\) stage's carry in?
+            \scriptsize{
+            \begin{align}
+                C_0 &= C_{in}\\
+                C_1 &= G_0+P_0C_{in}\\
+                C_2 &= G_1+P_1G_0+P_1P_0C_{in}\\
+                C_3 &= G_2+P_2G_1+P_2P_1G_0+P_2P_1P_0C_{in}\\
+                C_4 &= G_3+P_3G_2+P_3P_2G_1+P_3P_2P_1G_0+P_3P_2P_1P_0C_{in}\\
+                C_5 &= G_4+P_4(G_3+P_3(G_2+P_2(G_1+P_1(G_0+P_0C_{in}))))\\
+                C_6 &= G_5+P_5(G_4+P_4(G_3+P_3(G_2+P_2(G_1+P_1(G_0+P_0C_{in})))))\\
+                C_7 &= G_6+P_6(G_5+P_5(G_4+P_4(G_3+P_3(G_2+P_2(G_1+P_1(G_0+P_0C_{in}))))))\\
+                C_{out} &= G_7+P_7(G_6+P_6(G_5+P_5(G_4+P_4(G_3+P_3(G_2+P_2(G_1+P_1(G_0+P_0C_{in})))))))
+            \end{align}
+            }\normalsize
+
+
 \end{document}

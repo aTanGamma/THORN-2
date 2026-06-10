@@ -7,8 +7,35 @@
    viewBox="0 0 188.54292 140.18091"
    version="1.1"
    id="svg1"
+   sodipodi:docname="RegisterLayout.svg"
+   inkscape:version="1.4 (e7c3feb100, 2024-10-09)"
+   inkscape:export-filename="RegisterLayout.svg"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.1517797"
+     inkscape:cx="254.38893"
+     inkscape:cy="297.3659"
+     inkscape:window-width="1910"
+     inkscape:window-height="1050"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer4" />
   <defs
      id="defs1" />
   <g
@@ -1182,7 +1209,7 @@
          id="tspan138"
          style="fill:#000000;stroke:none;stroke-width:0.25"
          x="20.374592"
-         y="155.34804">WB_Data</tspan></text>
+         y="155.34804">WB_DATA</tspan></text>
     <g
        id="g94-7-0"
        style="display:inline"
