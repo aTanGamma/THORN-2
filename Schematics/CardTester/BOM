@@ -1,0 +1,32 @@
+Card Tester BOM
+===============
+
+#   Name                Mfr.        Value/Ref   No.     Size/Opt    Price/GBP   Notes             
+------------------------------------------------------------------------------------------------
+1   Decoupling caps.    KYOCERA AVX 0.1u        95      0805        2.20  /100 
+                        "                                           8.00  /500  *
+2   Decoupling caps.    Samsung     10u         1       0805        0.30  /10   *
+3   Decoupling caps.    Murata      100u        1       0805        1.90  /10   *
+4   Schottky diode      KYOCERA AVX -           1       0805        4.34  /20   *
+5   USB-B socket        Pulse Elec. -           1       Side Entry  0.81  /1    *
+6   PCIe x16 socket     Amphenol    10018784-   2       ThruHole    4.13  /5   
+                                    10203TLF                        7.00  /10   *
+7   R. Pi Pico 2        Raspberry   -           1       Headers     
+8   TLV62569 breakout   Adafruit    4711        1       5 - 3.3     2.97  /1    *
+9   74LVC574            TI          -           57      TSSOP-20    24.20 /60
+                        Nexperia                                    14.10 /100  * After 22/6/26
+10  74LVC541            Diodes Inc. -           28      TSSOP-20    10.60 /50   *
+                        "                                           8.24  /40 
+                        Nexperia                                    13.40 /100  After 09/26
+11  74LVC02             TI          -           8       TSSOP-14    2.22  /10   *  
+                        Nexperia                                    0.98  /10   After 09/26
+12  74LVC138            Nexperia    -           2       TSSOP-16    1.56  /10
+------------------------------------------------------------------------------------------------
+                                                        Total       51.44       Only using 
+* = selected                                                                    available ICs
+
+                                                                    55.36       When Nexperia
+                                                                                chips available
+
+
+
